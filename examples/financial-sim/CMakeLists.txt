@@ -53,3 +53,12 @@ add_executable(${TX_ENGINE_TEST_TARGET}
 )
 target_link_libraries(${TX_ENGINE_TEST_TARGET} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(${TX_ENGINE_TEST_TARGET} PRIVATE cxx_std_17)
+
+# Test for financial reporting (no model required)
+set(REPORTING_TEST_TARGET test-financial-reporting)
+add_executable(${REPORTING_TEST_TARGET} 
+    test-financial-reporting.cpp
+    financial-reporting.cpp
+)
+target_link_libraries(${REPORTING_TEST_TARGET} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_compile_features(${REPORTING_TEST_TARGET} PRIVATE cxx_std_17)
