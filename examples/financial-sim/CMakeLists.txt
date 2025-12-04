@@ -62,3 +62,23 @@ add_executable(${REPORTING_TEST_TARGET}
 )
 target_link_libraries(${REPORTING_TEST_TARGET} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(${REPORTING_TEST_TARGET} PRIVATE cxx_std_17)
+
+# Test for database persistence (no model required)
+set(DB_PERSIST_TEST_TARGET test-database-persistence)
+add_executable(${DB_PERSIST_TEST_TARGET}
+    test-database-persistence.cpp
+    database-persistence.cpp
+    transaction-engine.cpp
+)
+target_link_libraries(${DB_PERSIST_TEST_TARGET} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_compile_features(${DB_PERSIST_TEST_TARGET} PRIVATE cxx_std_17)
+
+# Demo for database persistence (no model required)
+set(DB_PERSIST_DEMO_TARGET demo-database-persistence)
+add_executable(${DB_PERSIST_DEMO_TARGET}
+    demo-database-persistence.cpp
+    database-persistence.cpp
+    transaction-engine.cpp
+)
+target_link_libraries(${DB_PERSIST_DEMO_TARGET} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_compile_features(${DB_PERSIST_DEMO_TARGET} PRIVATE cxx_std_17)
