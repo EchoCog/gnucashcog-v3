@@ -12,6 +12,12 @@
 // In a production environment, this would use actual PostgreSQL/TimescaleDB via libpq
 // The interface is designed to be database-agnostic for easy swapping of backends
 
+// Configuration constants
+namespace {
+    // Timeout for worker threads acquiring connections during shutdown
+    constexpr std::chrono::seconds WORKER_CONNECTION_TIMEOUT{1};
+}
+
 // ============================================================================
 // Stub PostgreSQL Connection Implementation
 // ============================================================================
@@ -168,14 +174,17 @@ void ConnectionPool::shutdown() {
 void ConnectionPool::maintenance_loop() {
     while (is_running) {
         // Wait for 60 seconds or until shutdown is signaled
-        std::unique_lock<std::mutex> lock(pool_mutex);
-        pool_cv.wait_for(lock, std::chrono::seconds(60), [this] { return !is_running; });
+        {
+            std::unique_lock<std::mutex> lock(pool_mutex);
+            pool_cv.wait_for(lock, std::chrono::seconds(60), [this] { return !is_running; });
+        }
         
         if (!is_running) {
             break;
         }
         
         // Check for idle connections and close them if needed
+        std::lock_guard<std::mutex> lock(pool_mutex);
         auto now = std::chrono::steady_clock::now();
         for (auto& conn : connections) {
             auto idle_time = std::chrono::duration_cast<std::chrono::seconds>(
@@ -617,7 +626,7 @@ void DatabasePersistenceManager::write_worker_thread() {
         lock.unlock();
         
         // Execute the write operation with timeout to prevent deadlock on shutdown
-        auto conn = connection_pool->acquire_connection(std::chrono::seconds(1));
+        auto conn = connection_pool->acquire_connection(WORKER_CONNECTION_TIMEOUT);
         if (conn) {
             // In production: Execute actual database operation
             bool success = true;
