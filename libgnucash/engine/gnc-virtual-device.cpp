@@ -56,36 +56,38 @@ void MemoryRegion::write_dword(uint64_t offset, uint32_t value) {
 int DMAController::start_transfer(uint64_t src, uint64_t dst, size_t len) {
     std::lock_guard<std::mutex> lock(transfer_mutex);
     
-    if (active_transfers.size() >= max_channels) {
-        return -1;  // No available channels
+    // Find first available slot (not in use, or completed)
+    for (uint32_t i = 0; i < max_channels; i++) {
+        if (!active_transfers[i].in_use) {
+            active_transfers[i].source_addr = src;
+            active_transfers[i].dest_addr = dst;
+            active_transfers[i].length = len;
+            active_transfers[i].completed = false;
+            active_transfers[i].in_use = true;
+            active_transfers[i].start_time = std::chrono::steady_clock::now();
+            return static_cast<int>(i);
+        }
     }
     
-    DMATransfer transfer;
-    transfer.source_addr = src;
-    transfer.dest_addr = dst;
-    transfer.length = len;
-    transfer.completed = false;
-    transfer.start_time = std::chrono::steady_clock::now();
-    
-    active_transfers.push_back(transfer);
-    return static_cast<int>(active_transfers.size() - 1);
+    return -1;  // No available channels
 }
 
 bool DMAController::is_transfer_complete(int channel) {
     std::lock_guard<std::mutex> lock(transfer_mutex);
     
-    if (channel < 0 || channel >= static_cast<int>(active_transfers.size())) {
+    if (channel < 0 || channel >= static_cast<int>(max_channels)) {
         return false;
     }
     
-    return active_transfers[channel].completed;
+    return active_transfers[channel].in_use && active_transfers[channel].completed;
 }
 
 void DMAController::abort_transfer(int channel) {
     std::lock_guard<std::mutex> lock(transfer_mutex);
     
-    if (channel >= 0 && channel < static_cast<int>(active_transfers.size())) {
-        active_transfers.erase(active_transfers.begin() + channel);
+    if (channel >= 0 && channel < static_cast<int>(max_channels)) {
+        active_transfers[channel].in_use = false;
+        active_transfers[channel].completed = false;
     }
 }
 
@@ -93,14 +95,14 @@ void DMAController::process_transfers() {
     std::lock_guard<std::mutex> lock(transfer_mutex);
     
     for (auto& transfer : active_transfers) {
-        if (!transfer.completed) {
+        if (transfer.in_use && !transfer.completed) {
             // Simulate transfer completion based on time
             auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 now - transfer.start_time).count();
             
             // Assume 1GB/s transfer rate: 1 byte per nanosecond
-            if (elapsed >= transfer.length) {
+            if (elapsed >= static_cast<long long>(transfer.length)) {
                 transfer.completed = true;
             }
         }

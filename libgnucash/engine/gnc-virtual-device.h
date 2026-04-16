@@ -247,9 +247,10 @@ struct DMATransfer {
     uint64_t dest_addr;
     size_t length;
     bool completed;
+    bool in_use;
     std::chrono::steady_clock::time_point start_time;
     
-    DMATransfer() : source_addr(0), dest_addr(0), length(0), completed(false) {}
+    DMATransfer() : source_addr(0), dest_addr(0), length(0), completed(false), in_use(false) {}
 };
 
 class DMAController {
@@ -259,7 +260,9 @@ private:
     uint32_t max_channels;
     
 public:
-    DMAController(uint32_t channels = 8) : max_channels(channels) {}
+    DMAController(uint32_t channels = 8) : max_channels(channels) {
+        active_transfers.resize(channels);
+    }
     
     int start_transfer(uint64_t src, uint64_t dst, size_t len);
     bool is_transfer_complete(int channel);
