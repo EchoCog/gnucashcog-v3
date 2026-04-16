@@ -140,7 +140,7 @@ bool FinancialDeviceDriver::update_account_balance(const std::string& account_co
     // Map balance to voltage (0-3.3V for 12-bit ADC)
     // Using logarithmic scale for large balances
     double voltage = 0.0;
-    if (balance > 0) {
+    if (balance != 0) {
         voltage = std::min(3.3, std::log10(std::abs(balance) + 1.0) / 6.0 * 3.3);
     }
     
