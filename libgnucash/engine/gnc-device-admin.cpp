@@ -301,6 +301,7 @@ public:
     void reset_device() {
         std::cout << "\nResetting device...\n";
         if (device->reset()) {
+            device->start();
             diagnostics->log_event(DiagnosticLevel::INFO, "AdminUtil", "Device reset");
             std::cout << "Device reset successful\n";
         } else {
@@ -378,6 +379,7 @@ public:
                     }
                     std::cout << "\n";
                 }
+                std::cout << std::dec << std::setfill(' ');
             } else {
                 std::cout << "Memory region '" << region_name << "' not found\n";
             }
