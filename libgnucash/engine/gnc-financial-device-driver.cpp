@@ -562,9 +562,13 @@ std::string DiagnosticSystem::generate_diagnostic_report() {
     ss << "  ERROR: " << error << "\n";
     ss << "  CRITICAL: " << critical << "\n\n";
     
-    // Recent events
+    // Recent events (inline logic to avoid recursive lock on diagnostic_mutex)
     ss << "Recent Events:\n";
-    auto recent = get_recent_events(10);
+    size_t start = 0;
+    if (event_log.size() > 10) {
+        start = event_log.size() - 10;
+    }
+    auto recent = std::vector<DiagnosticEvent>(event_log.begin() + start, event_log.end());
     for (const auto& event : recent) {
         ss << "  [";
         switch (event.level) {

@@ -23,8 +23,8 @@ uint16_t MemoryRegion::read_word(uint64_t offset) {
 
 uint32_t MemoryRegion::read_dword(uint64_t offset) {
     if (offset + 3 >= size) return 0;
-    return (data[offset + 3] << 24) | (data[offset + 2] << 16) | 
-           (data[offset + 1] << 8) | data[offset];
+    return (static_cast<uint32_t>(data[offset + 3]) << 24) | (static_cast<uint32_t>(data[offset + 2]) << 16) | 
+           (static_cast<uint32_t>(data[offset + 1]) << 8) | data[offset];
 }
 
 void MemoryRegion::write_byte(uint64_t offset, uint8_t value) {
