@@ -118,7 +118,9 @@ public:
         std::string input;
         while (running) {
             std::cout << "\nGGNuCash Admin> ";
-            std::getline(std::cin, input);
+            if (!std::getline(std::cin, input)) {
+                break;  // EOF or stream error
+            }
             
             if (input.empty()) continue;
             
