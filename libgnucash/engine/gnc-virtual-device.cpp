@@ -165,15 +165,27 @@ void InterruptController::disable_global_interrupts() {
 }
 
 void InterruptController::process_interrupts() {
-    std::lock_guard<std::mutex> lock(interrupt_mutex);
-    
-    while (!pending_interrupts.empty() && global_interrupt_enable) {
-        uint32_t vector = pending_interrupts.front();
-        pending_interrupts.pop();
-        
-        if (vector < interrupts.size() && interrupts[vector].handler) {
-            interrupts[vector].handler();
+    // Drain the pending queue into a local list of handlers under the lock,
+    // then invoke them with the lock released. This prevents deadlock if a
+    // handler calls back into the interrupt controller or any other
+    // lock-protected component (e.g. VirtualPCB).
+    std::vector<std::function<void()>> handlers_to_run;
+
+    {
+        std::lock_guard<std::mutex> lock(interrupt_mutex);
+
+        while (!pending_interrupts.empty() && global_interrupt_enable) {
+            uint32_t vector = pending_interrupts.front();
+            pending_interrupts.pop();
+
+            if (vector < interrupts.size() && interrupts[vector].handler) {
+                handlers_to_run.push_back(interrupts[vector].handler);
+            }
         }
+    }
+
+    for (auto& handler : handlers_to_run) {
+        handler();
     }
 }
 
@@ -484,20 +496,30 @@ bool VirtualPCB::configure_pin(uint32_t pin_num, PinMode mode) {
 }
 
 bool VirtualPCB::set_pin_state(uint32_t pin_num, PinState state_val) {
-    std::lock_guard<std::mutex> lock(device_mutex);
-    
-    auto it = pins.find(pin_num);
-    if (it == pins.end()) {
-        return false;
+    // Update pin state under the lock, but capture any interrupt handler to
+    // invoke after releasing the lock. Invoking the handler with
+    // device_mutex held would deadlock if it calls back into VirtualPCB.
+    std::function<void()> handler_to_run;
+
+    {
+        std::lock_guard<std::mutex> lock(device_mutex);
+
+        auto it = pins.find(pin_num);
+        if (it == pins.end()) {
+            return false;
+        }
+
+        it->second.state = state_val;
+
+        if (it->second.interrupt_enabled && it->second.interrupt_handler) {
+            handler_to_run = it->second.interrupt_handler;
+        }
     }
-    
-    it->second.state = state_val;
-    
-    // Trigger interrupt if enabled
-    if (it->second.interrupt_enabled && it->second.interrupt_handler) {
-        it->second.interrupt_handler();
+
+    if (handler_to_run) {
+        handler_to_run();
     }
-    
+
     return true;
 }
 
@@ -605,27 +627,34 @@ uint64_t VirtualPCB::get_uptime_ms() const {
 }
 
 void VirtualPCB::update() {
-    std::lock_guard<std::mutex> lock(device_mutex);
-    
-    if (state != DeviceState::RUNNING) {
-        return;
+    // Update device-owned state under the lock, then release it before
+    // invoking the DMA and interrupt controllers. Those controllers carry
+    // their own internal mutexes and may invoke user-registered handler
+    // callbacks that call back into VirtualPCB, which would deadlock if
+    // device_mutex were still held here.
+    {
+        std::lock_guard<std::mutex> lock(device_mutex);
+
+        if (state != DeviceState::RUNNING) {
+            return;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+        auto delta = std::chrono::duration_cast<std::chrono::microseconds>(
+            now - last_update);
+
+        system_ticks += delta.count();
+        last_update = now;
+
+        // Simulate temperature variation
+        temperature_celsius = 25.0f + (system_ticks % 10000) / 1000.0f;
     }
-    
-    auto now = std::chrono::steady_clock::now();
-    auto delta = std::chrono::duration_cast<std::chrono::microseconds>(
-        now - last_update);
-    
-    system_ticks += delta.count();
-    last_update = now;
-    
-    // Update DMA transfers
+
+    // Update DMA transfers (independent mutex; may not invoke callbacks)
     dma_controller->process_transfers();
-    
-    // Process interrupts
+
+    // Process interrupts (handlers are invoked outside any mutex)
     interrupt_controller->process_interrupts();
-    
-    // Simulate temperature variation
-    temperature_celsius = 25.0f + (system_ticks % 10000) / 1000.0f;
 }
 
 std::string VirtualPCB::get_status_report() const {
