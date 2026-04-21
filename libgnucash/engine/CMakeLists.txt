@@ -64,6 +64,8 @@ set (engine_HEADERS
   gnc-cognitive-unification.h
   gnc-cognitive-api.h
   gnc-cognitive-graphql.h
+  gnc-virtual-device.h
+  gnc-financial-device-driver.h
   gnc-commodity.h
   gnc-commodity.hpp
   gnc-date.h
@@ -175,6 +177,8 @@ set (engine_SOURCES
   gnc-cognitive-unification.cpp
   gnc-cognitive-api.c
   gnc-cognitive-graphql.c
+  gnc-virtual-device.cpp
+  gnc-financial-device-driver.cpp
   gnc-commodity.cpp
   gnc-date.cpp
   gnc-datetime.cpp
