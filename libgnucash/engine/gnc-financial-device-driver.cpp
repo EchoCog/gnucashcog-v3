@@ -176,9 +176,15 @@ bool FinancialDeviceDriver::process_hardware_transaction(const std::vector<uint8
         transaction_buffer->write_byte(i, tx_data[i]);
     }
     
-    // Update transaction count
-    uint8_t count = device->read_memory(REG_TRANSACTION_COUNT);
-    device->write_memory(REG_TRANSACTION_COUNT, count + 1);
+    // Update transaction count as a 32-bit register. read_memory / write_memory
+    // only handle a single byte, which would silently wrap at 255 even though
+    // the register occupies four bytes (0x40000008..0x4000000B).
+    auto* periph_region = device->get_memory_region("PERIPH");
+    if (periph_region) {
+        uint64_t offset = REG_TRANSACTION_COUNT - REG_BASE;
+        uint32_t count = periph_region->read_dword(offset);
+        periph_region->write_dword(offset, count + 1);
+    }
     
     // Set status to processing
     device->write_memory(REG_TRANSACTION_STATUS, 0x01);
@@ -205,8 +211,14 @@ std::string FinancialDeviceDriver::get_hardware_diagnostics() {
     ss << "\nHardware Registers:\n";
     ss << "  TX_STATUS: 0x" << std::hex << std::setw(2) << std::setfill('0')
        << static_cast<int>(device->read_memory(REG_TRANSACTION_STATUS)) << "\n";
-    ss << "  TX_COUNT: " << std::dec 
-       << static_cast<int>(device->read_memory(REG_TRANSACTION_COUNT)) << "\n";
+    // Read the full 32-bit transaction count register so the displayed value
+    // remains correct past 255 transactions.
+    uint32_t tx_count = 0;
+    auto* periph_region = device->get_memory_region("PERIPH");
+    if (periph_region) {
+        tx_count = periph_region->read_dword(REG_TRANSACTION_COUNT - REG_BASE);
+    }
+    ss << "  TX_COUNT: " << std::dec << tx_count << "\n";
     ss << "  ERROR_CODE: 0x" << std::hex << std::setw(2) << std::setfill('0')
        << static_cast<int>(device->read_memory(REG_ERROR_CODE)) << "\n";
     
@@ -217,13 +229,23 @@ bool FinancialDeviceDriver::run_self_test() {
     std::cout << "Running financial hardware self-test...\n";
     
     // Test 1: Pin accessibility
+    // Save and restore the pre-test analog values for every mapped pin so the
+    // self-test does not corrupt account balances reflected on the pins.
     std::cout << "Test 1: Pin accessibility... ";
     bool test1_pass = true;
+    std::map<uint32_t, uint16_t> saved_pin_values;
+    for (const auto& pair : account_pins) {
+        saved_pin_values[pair.second.pin_number] =
+            device->get_analog_value(pair.second.pin_number);
+    }
     for (const auto& pair : account_pins) {
         if (!device->set_analog_value(pair.second.pin_number, 2048)) {
             test1_pass = false;
             break;
         }
+    }
+    for (const auto& saved : saved_pin_values) {
+        device->set_analog_value(saved.first, saved.second);
     }
     std::cout << (test1_pass ? "PASS" : "FAIL") << "\n";
     
@@ -235,10 +257,14 @@ bool FinancialDeviceDriver::run_self_test() {
     std::cout << (test2_pass ? "PASS" : "FAIL") << "\n";
     
     // Test 3: Register access
+    // Save and restore REG_TRANSACTION_STATUS so the self-test does not leave
+    // the status register in a garbage state.
     std::cout << "Test 3: Register access... ";
+    uint8_t saved_tx_status = device->read_memory(REG_TRANSACTION_STATUS);
     device->write_memory(REG_TRANSACTION_STATUS, 0xAA);
     uint8_t read_val = device->read_memory(REG_TRANSACTION_STATUS);
     bool test3_pass = (read_val == 0xAA);
+    device->write_memory(REG_TRANSACTION_STATUS, saved_tx_status);
     std::cout << (test3_pass ? "PASS" : "FAIL") << "\n";
     
     bool all_pass = test1_pass && test2_pass && test3_pass;
