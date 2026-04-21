@@ -66,10 +66,15 @@ bool FinancialDeviceDriver::initialize() {
             REG_BASE + 0x1000, 4096, "TXN_BUFFER");
     }
     
-    // Initialize hardware registers
-    device->write_memory(REG_TRANSACTION_STATUS, 0x00);
-    device->write_memory(REG_TRANSACTION_COUNT, 0x00);
-    device->write_memory(REG_ERROR_CODE, 0x00);
+    // Initialize hardware registers. Each register is 32 bits wide (aligned
+    // on 4-byte boundaries) and is read/written as a dword elsewhere, so we
+    // must zero all four bytes here; a single-byte write_memory would leave
+    // stale upper bytes behind on re-initialization.
+    if (periph_region) {
+        periph_region->write_dword(REG_TRANSACTION_STATUS - REG_BASE, 0);
+        periph_region->write_dword(REG_TRANSACTION_COUNT - REG_BASE, 0);
+        periph_region->write_dword(REG_ERROR_CODE - REG_BASE, 0);
+    }
     
     is_initialized = true;
     std::cout << "Financial hardware driver initialized successfully.\n";
