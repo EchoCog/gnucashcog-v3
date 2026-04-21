@@ -209,9 +209,9 @@ bool UARTStream::close() {
 }
 
 size_t UARTStream::write(const uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t written = 0;
     
     for (size_t i = 0; i < length && tx_buffer.size() < tx_buffer_size; i++) {
@@ -223,9 +223,9 @@ size_t UARTStream::write(const uint8_t* data, size_t length) {
 }
 
 size_t UARTStream::read(uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t bytes_read = 0;
     
     while (bytes_read < length && !rx_buffer.empty()) {
@@ -266,9 +266,9 @@ bool SPIStream::close() {
 }
 
 size_t SPIStream::write(const uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t written = 0;
     
     for (size_t i = 0; i < length && tx_buffer.size() < tx_buffer_size; i++) {
@@ -280,9 +280,9 @@ size_t SPIStream::write(const uint8_t* data, size_t length) {
 }
 
 size_t SPIStream::read(uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t bytes_read = 0;
     
     while (bytes_read < length && !rx_buffer.empty()) {
@@ -323,9 +323,9 @@ bool I2CStream::close() {
 }
 
 size_t I2CStream::write(const uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t written = 0;
     
     for (size_t i = 0; i < length && tx_buffer.size() < tx_buffer_size; i++) {
@@ -337,9 +337,9 @@ size_t I2CStream::write(const uint8_t* data, size_t length) {
 }
 
 size_t I2CStream::read(uint8_t* data, size_t length) {
-    if (!is_open) return 0;
-    
     std::lock_guard<std::mutex> lock(buffer_mutex);
+    if (!is_open) return 0;
+
     size_t bytes_read = 0;
     
     while (bytes_read < length && !rx_buffer.empty()) {

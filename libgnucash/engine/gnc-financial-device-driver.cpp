@@ -428,6 +428,12 @@ bool ConfigurationManager::load_configuration(const std::string& name) {
     
     auto it = configurations.find(name);
     if (it != configurations.end()) {
+        // Deactivate the previously active configuration so only one
+        // DeviceConfiguration ever has is_active == true at a time.
+        auto prev_it = configurations.find(active_config_name);
+        if (prev_it != configurations.end() && prev_it != it) {
+            prev_it->second.is_active = false;
+        }
         active_config_name = name;
         it->second.is_active = true;
         return true;
