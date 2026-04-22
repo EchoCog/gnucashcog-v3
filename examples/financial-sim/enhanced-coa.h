@@ -3,6 +3,7 @@
 #include "chart-of-accounts.h"
 #include <algorithm>
 #include <functional>
+#include <set>
 
 // Enhanced Chart of Accounts - the virtual hardware architecture with full metadata support
 class EnhancedChartOfAccounts {
@@ -243,9 +244,24 @@ public:
         if (it == templates.end()) return false;
         
         const AccountTemplate& tmpl = it->second;
+        // Build set of codes defined within this template for parent resolution
+        std::set<std::string> template_codes;
+        for (const Account& acc : tmpl.accounts) {
+            template_codes.insert(acc.code);
+        }
+        
         for (const Account& acc : tmpl.accounts) {
             std::string new_code = code_prefix.empty() ? acc.code : (code_prefix + acc.code);
-            std::string new_parent = acc.parent_code.empty() ? "" : (code_prefix + acc.parent_code);
+            // Only prefix parent if the parent is also defined in the template;
+            // otherwise keep the original parent code to link to existing standard COA
+            std::string new_parent;
+            if (acc.parent_code.empty()) {
+                new_parent = "";
+            } else if (!code_prefix.empty() && template_codes.count(acc.parent_code)) {
+                new_parent = code_prefix + acc.parent_code;
+            } else {
+                new_parent = acc.parent_code;
+            }
             
             add_account(new_code, acc.name, acc.type, new_parent, acc.metadata.currency.code);
             

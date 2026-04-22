@@ -747,10 +747,11 @@ std::string generate_transaction_id(const std::string& prefix) {
 }
 
 std::string generate_batch_id() {
+    static std::atomic<uint64_t> counter(0);
     auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     
     std::stringstream ss;
-    ss << "BATCH-" << timestamp;
+    ss << "BATCH-" << timestamp << "-" << counter.fetch_add(1);
     return ss.str();
 }
 
