@@ -577,7 +577,7 @@ std::vector<FinancialReport> FinancialReportGenerator::generate_batch_reports(
     
     for (size_t i = 0; i < count; i++) {
         for (const auto& report_type : report_types) {
-            futures.push_back(std::async(std::launch::async, [this, &coa, &report_type, &period]() {
+            futures.push_back(std::async(std::launch::async, [this, &coa, report_type, &period]() {
                 if (report_type == "balance_sheet") {
                     return generate_balance_sheet(coa, period);
                 } else if (report_type == "income_statement") {

@@ -13,6 +13,33 @@ private:
     ExchangeRateManager exchange_rates;
     std::map<std::string, AccountTemplate> templates;
     
+    // Resolve currency code to full Currency object with correct symbol/name/decimals
+    static Currency resolve_currency(const std::string& code) {
+        static const std::map<std::string, Currency> known_currencies = {
+            {"USD", Currency("USD", "$", "US Dollar", 2)},
+            {"EUR", Currency("EUR", "\xe2\x82\xac", "Euro", 2)},
+            {"GBP", Currency("GBP", "\xc2\xa3", "British Pound", 2)},
+            {"JPY", Currency("JPY", "\xc2\xa5", "Japanese Yen", 0)},
+            {"CHF", Currency("CHF", "CHF", "Swiss Franc", 2)},
+            {"CAD", Currency("CAD", "C$", "Canadian Dollar", 2)},
+            {"AUD", Currency("AUD", "A$", "Australian Dollar", 2)},
+            {"CNY", Currency("CNY", "\xc2\xa5", "Chinese Yuan", 2)},
+            {"INR", Currency("INR", "\xe2\x82\xb9", "Indian Rupee", 2)},
+            {"BRL", Currency("BRL", "R$", "Brazilian Real", 2)},
+            {"ZAR", Currency("ZAR", "R", "South African Rand", 2)},
+            {"KRW", Currency("KRW", "\xe2\x82\xa9", "South Korean Won", 0)},
+            {"SEK", Currency("SEK", "kr", "Swedish Krona", 2)},
+            {"NOK", Currency("NOK", "kr", "Norwegian Krone", 2)},
+            {"MXN", Currency("MXN", "Mex$", "Mexican Peso", 2)},
+        };
+        auto it = known_currencies.find(code);
+        if (it != known_currencies.end()) {
+            return it->second;
+        }
+        // Unknown currency: use code as symbol, generic name, default 2 decimals
+        return Currency(code, code, code, 2);
+    }
+    
 public:
     EnhancedChartOfAccounts() : exchange_rates("USD") {}
     
@@ -83,7 +110,7 @@ public:
         }
         
         accounts[code] = Account(code, name, type, parent, depth);
-        accounts[code].metadata.currency = Currency(currency, "$", "US Dollar", 2);
+        accounts[code].metadata.currency = resolve_currency(currency);
         
         if (!parent.empty() && accounts.find(parent) != accounts.end()) {
             accounts[parent].children.push_back(code);
