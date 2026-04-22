@@ -230,6 +230,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
             -DCMAKE_INSTALL_PREFIX=$ROOT_DIR/inst \
             -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_OFX=${{ matrix.with_ofx && 'ON' || 'OFF' }} \
             $GITHUB_WORKSPACE
       - name: Build GnuCash
         run: |
