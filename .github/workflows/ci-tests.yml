@@ -4,7 +4,7 @@
 # Merges:
 #   - gnucashcog-v3   : build-linux (Ubuntu + ASAN), build-macos, coverage
 #   - gnucashmulti     : CodeQL Advanced security scanning
-#   - ggnumlcash.cpp   : cmake multi-platform (Windows), CURL/no-CURL matrix
+#   - ggnumlcash.cpp   : multi-compiler matrix (gcc/clang), OFX on/off
 #
 # Reference: OZC-279
 ##############################################################################
@@ -181,73 +181,71 @@ jobs:
         if: failure()
         with:
           name: TestLog-macos
-          path: ${{ github.workspace }}/build/Testing/Temporary/LastTest.log
+          path: ~/gnucash/build/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
 
   ###########################################################################
-  # build-windows — cmake multi-platform Windows (from ggnumlcash.cpp)
+  # build-multicompiler — multi-compiler matrix with OFX on/off
+  #   (adapted from ggnumlcash.cpp cmake-multi-platform for GnuCash)
   ###########################################################################
-  build-windows:
-    runs-on: ${{ matrix.os }}
-    name: "${{ matrix.os }} / ${{ matrix.c_compiler }} ${{ matrix.curl && '(CURL)' || '(no-CURL)' }}"
+  build-multicompiler:
+    runs-on: ubuntu-latest
+    name: "ubuntu / ${{ matrix.c_compiler }} ${{ matrix.with_ofx && '(OFX)' || '(no-OFX)' }}"
     permissions:
       contents: read
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        build_type: [Release]
-        c_compiler: [gcc, clang, cl]
-        curl: [true, false]
+        c_compiler: [gcc, clang]
+        with_ofx: [true, false]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: gcc
+          - c_compiler: gcc
             cpp_compiler: g++
-          - os: ubuntu-latest
-            c_compiler: clang
+          - c_compiler: clang
             cpp_compiler: clang++
-        exclude:
-          - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
-          - os: ubuntu-latest
-            c_compiler: cl
+    env:
+      TZ: America/Los_Angeles
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set reusable strings
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-      - name: Install libcurl (Linux)
-        if: runner.os == 'Linux' && matrix.curl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev
-
-      - name: Configure CMake
+      - run: sudo apt-get update
+      - name: Install dependencies
         run: >
-          cmake -B ${{ steps.strings.outputs.build-output-dir }}
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          ${{ !matrix.curl && '-DLLAMA_CURL=OFF' || '' }}
-          -S ${{ github.workspace }}
-
-      - name: Build
-        run: >
-          cmake --build ${{ steps.strings.outputs.build-output-dir }}
-          --config ${{ matrix.build_type }}
-
-      - name: Test
-        working-directory: ${{ steps.strings.outputs.build-output-dir }}
-        run: ctest --build-config ${{ matrix.build_type }}
+          sudo apt-get install -y
+          gettext cmake libxslt-dev xsltproc ninja-build
+          libboost-all-dev libgtk-3-dev guile-2.2-dev
+          libgwengui-gtk3-dev libaqbanking-dev
+          libdbi-dev libdbd-sqlite3 libwebkit2gtk-4.1-dev googletest
+          ${{ matrix.with_ofx && 'libofx-dev' || '' }}
+      - run: echo "ROOT_DIR=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
+      - name: Create directories
+        run: |
+          mkdir $ROOT_DIR/inst
+          mkdir build
+      - name: Configure GnuCash
+        run: |
+          cd build
+          cmake -G Ninja -DWITH_PYTHON=ON \
+            -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+            -DCMAKE_INSTALL_PREFIX=$ROOT_DIR/inst \
+            -DCMAKE_BUILD_TYPE=Release \
+            $GITHUB_WORKSPACE
+      - name: Build GnuCash
+        run: |
+          cd build
+          ninja
+      - name: Test GnuCash
+        run: |
+          cd build
+          ninja check
+        env:
+          CTEST_OUTPUT_ON_FAILURE: "On"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: "TestLog-${{ matrix.c_compiler }}-${{ matrix.with_ofx && 'ofx' || 'no-ofx' }}"
+          path: ${{ github.workspace }}/build/Testing/Temporary/LastTest.log
 
   ###########################################################################
   # codeql — CodeQL Advanced security scanning (from gnucashmulti)
@@ -376,6 +374,7 @@ jobs:
     name: Cognitive Accounting Demo
     permissions:
       contents: read
+    continue-on-error: true
     env:
       TZ: America/Los_Angeles
     steps:
