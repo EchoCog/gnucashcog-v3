@@ -300,10 +300,11 @@ bool RecoveryManager::restore_to_point(const std::string& recovery_point_id,
 bool RecoveryManager::restore_to_timestamp(const std::chrono::system_clock::time_point& timestamp,
                                           DatabaseConnection* conn) {
     // Find the closest recovery point before the timestamp
-    RecoveryPoint* closest = nullptr;
+    std::string closest_id;
     
     {
         std::lock_guard<std::mutex> lock(recovery_mutex);
+        RecoveryPoint* closest = nullptr;
         for (auto& point : recovery_points) {
             if (point.timestamp <= timestamp) {
                 if (!closest || point.timestamp > closest->timestamp) {
@@ -311,14 +312,14 @@ bool RecoveryManager::restore_to_timestamp(const std::chrono::system_clock::time
                 }
             }
         }
-    }
-    
-    if (!closest) {
-        return false;
+        if (!closest) {
+            return false;
+        }
+        closest_id = closest->id;  // Copy id while lock is held
     }
     
     // Call restore_to_point without holding the lock
-    return restore_to_point(closest->id, conn);
+    return restore_to_point(closest_id, conn);
 }
 
 bool RecoveryManager::verify_recovery_point(const std::string& recovery_point_id) const {

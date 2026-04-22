@@ -79,9 +79,11 @@ std::string ReportPeriod::to_string() const {
         case PeriodType::PERIOD:
         case PeriodType::CUSTOM: {
             auto start_time_t = std::chrono::system_clock::to_time_t(start_date);
-            std::tm* tm_start = std::localtime(&start_time_t);
-            ss << "For the period " << std::put_time(tm_start, "%B %d, %Y") 
-               << " to " << std::put_time(tm, "%B %d, %Y");
+            std::tm tm_start_copy = *std::localtime(&start_time_t);
+            auto end_time_t_copy = std::chrono::system_clock::to_time_t(end_date);
+            std::tm tm_end_copy = *std::localtime(&end_time_t_copy);
+            ss << "For the period " << std::put_time(&tm_start_copy, "%B %d, %Y") 
+               << " to " << std::put_time(&tm_end_copy, "%B %d, %Y");
             break;
         }
     }

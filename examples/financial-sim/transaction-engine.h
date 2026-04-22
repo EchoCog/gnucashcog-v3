@@ -223,8 +223,20 @@ public:
     // Export audit trail to string
     std::string export_trail() const;
     
-    size_t get_block_count() const { return blocks.size(); }
+    size_t get_block_count() const {
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(audit_mutex));
+        return blocks.size();
+    }
     size_t get_transaction_count() const;
+    
+    // Thread-safe: get the hash of the last transaction in the trail
+    std::string get_last_transaction_hash() const {
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(audit_mutex));
+        if (blocks.empty()) return "";
+        const auto& last_block = blocks.back();
+        if (last_block.transactions.empty()) return "";
+        return last_block.transactions.back().hash;
+    }
 };
 
 // ============================================================================

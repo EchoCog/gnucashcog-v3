@@ -374,13 +374,7 @@ void TransactionEngine::worker_thread_func() {
         
         if (batch) {
             // Process batch
-            std::string prev_hash = "";
-            if (audit_trail->get_block_count() > 0) {
-                auto last_block = audit_trail->get_block(audit_trail->get_block_count() - 1);
-                if (last_block && !last_block->transactions.empty()) {
-                    prev_hash = last_block->transactions.back().hash;
-                }
-            }
+            std::string prev_hash = audit_trail->get_last_transaction_hash();
             
             std::vector<Transaction> processed_txs;
             
