@@ -108,6 +108,49 @@ extract_two_handles(const std::string &name, guint64 &first, guint64 &second)
     return true;
 }
 
+/* Several link kinds share the same GncAtomType via legacy aliases (e.g.
+ * GNC_ATOM_ACCOUNT_HIERARCHY == GNC_ATOM_INHERITANCE_LINK) but encode their
+ * two participant handles in a different order:
+ *   - "HierarchyLink:<parent>-><child>"    (gnc_atomspace_create_hierarchy_link)
+ *   - "InheritanceLink:<child>-><parent>"  (gnc_atomspace_create_inheritance_link)
+ *   - "EvaluationLink:<predicate>:<account>" (gnc_atomspace_create_evaluation_link)
+ * Prefer the name-encoded prefix over the atom type so these aren't
+ * conflated, falling back to the type-derived name for link kinds that
+ * don't have a distinct encoding of their own. */
+std::string
+derive_link_type(GncAtomType type, const std::string &name)
+{
+    size_t colon = name.find(':');
+    if (colon != std::string::npos)
+    {
+        std::string prefix = name.substr(0, colon);
+        if (prefix == "HierarchyLink" || prefix == "InheritanceLink" || prefix == "EvaluationLink")
+            return prefix;
+    }
+    return atom_type_name(type);
+}
+
+void
+roles_for_link_type(const std::string &link_type, const char *&role_a, const char *&role_b)
+{
+    if (link_type == "HierarchyLink")
+    {
+        role_a = "parent";
+        role_b = "child";
+    }
+    else if (link_type == "EvaluationLink")
+    {
+        role_a = "predicate";
+        role_b = "account";
+    }
+    else
+    {
+        /* InheritanceLink and all other link kinds. */
+        role_a = "child";
+        role_b = "parent";
+    }
+}
+
 std::string
 json_escape(const std::string &s)
 {
@@ -199,13 +242,14 @@ gnc_cognitive_export_fincosys_json(void)
         out << (first_link ? "\n" : ",\n");
         first_link = false;
 
-        const char *type_name = atom_type_name(rec.type);
-        const char *role_a = (rec.type == GNC_ATOM_EVALUATION_LINK) ? "predicate" : "child";
-        const char *role_b = (rec.type == GNC_ATOM_EVALUATION_LINK) ? "account" : "parent";
+        std::string link_type = derive_link_type(rec.type, rec.name);
+        const char *role_a;
+        const char *role_b;
+        roles_for_link_type(link_type, role_a, role_b);
 
         out << "    {\n";
         out << "      \"id\": " << json_quote(std::to_string(rec.handle)) << ",\n";
-        out << "      \"link_type\": " << json_quote(type_name) << ",\n";
+        out << "      \"link_type\": " << json_quote(link_type) << ",\n";
         out << "      \"atoms\": [" << json_quote(std::to_string(a)) << ", "
             << json_quote(std::to_string(b)) << "],\n";
         out << "      \"roles\": {" << json_quote(std::to_string(a)) << ": "

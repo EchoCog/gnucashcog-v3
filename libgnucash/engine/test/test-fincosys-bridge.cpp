@@ -97,6 +97,34 @@ TEST_F(FincosysBridgeTest, ExportsInheritanceLinkWithParticipants)
     g_free(json);
 }
 
+TEST_F(FincosysBridgeTest, ExportsHierarchyLinkWithCorrectRoleOrder)
+{
+    /* gnc_atomspace_create_hierarchy_link() encodes "parent->child" -- the
+     * reverse order of gnc_atomspace_create_inheritance_link()'s
+     * "child->parent" -- even though both share the same underlying
+     * GncAtomType (GNC_ATOM_ACCOUNT_HIERARCHY == GNC_ATOM_INHERITANCE_LINK).
+     * The export must not conflate the two. */
+    GncAtomHandle parent = gnc_atomspace_create_concept_node("Asset");
+    GncAtomHandle child = gnc_atomspace_create_concept_node("Bank");
+    GncAtomHandle link = gnc_atomspace_create_hierarchy_link(parent, child);
+    ASSERT_NE(0U, link);
+
+    gchar* json = gnc_cognitive_export_fincosys_json();
+    ASSERT_NE(nullptr, json);
+
+    std::string text(json);
+    EXPECT_NE(std::string::npos, text.find("\"link_type\": \"HierarchyLink\""));
+    EXPECT_NE(std::string::npos,
+              text.find("\"atoms\": [\"" + std::to_string(parent) + "\", \"" +
+                         std::to_string(child) + "\"]"));
+    EXPECT_NE(std::string::npos,
+              text.find("\"" + std::to_string(parent) + "\": \"parent\""));
+    EXPECT_NE(std::string::npos,
+              text.find("\"" + std::to_string(child) + "\": \"child\""));
+
+    g_free(json);
+}
+
 TEST_F(FincosysBridgeTest, ExportsEvaluationLinkWithPredicateAccountRoles)
 {
     GncAtomHandle predicate = gnc_atomspace_create_predicate_node("HasBalance");

@@ -101,7 +101,13 @@ struct GncCognitiveAtomSpace {
                 guint64 gnc_link_handle = reinterpret_cast<guint64>(link_handle.value());
                 opencog_handles[gnc_link_handle] = link_handle;
                 handle_types[gnc_link_handle] = GNC_ATOM_ACCOUNT_HIERARCHY;
-                
+                /* Match the fallback branch's naming convention (see below)
+                 * so external export/sync bridges (gnc_atomspace_foreach_atom())
+                 * can recover participant handles regardless of which
+                 * AtomSpace backend is compiled in. */
+                handle_names[gnc_link_handle] = "HierarchyLink:" +
+                    std::to_string(parent_handle) + "->" + std::to_string(child_handle);
+
                 return gnc_link_handle;
             }
         }
