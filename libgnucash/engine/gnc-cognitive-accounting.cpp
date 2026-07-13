@@ -331,8 +331,64 @@ gboolean gnc_atomspace_get_truth_value(GncAtomHandle atom_handle,
         if (confidence) *confidence = it->second.second;
         return TRUE;
     }
-    
+
     return FALSE;
+}
+
+gboolean gnc_atomspace_foreach_atom(GncAtomForeachCB callback, gpointer user_data)
+{
+    g_return_val_if_fail(callback != nullptr, FALSE);
+
+    if (!g_atomspace) {
+        g_warning("Cognitive accounting not initialized");
+        return FALSE;
+    }
+
+#ifdef HAVE_OPENCOG_ATOMSPACE
+    for (const auto& pair : g_atomspace->handle_types)
+    {
+        GncAtomHandle handle = pair.first;
+        GncAtomType type = pair.second;
+
+        auto name_it = g_atomspace->handle_names.find(handle);
+        std::string name = (name_it != g_atomspace->handle_names.end())
+                                ? name_it->second
+                                : std::string();
+
+        gdouble strength = 0.5, confidence = 0.5;
+        auto attn_it = g_atomspace->attention_params.find(handle);
+        if (attn_it != g_atomspace->attention_params.end())
+        {
+            strength = attn_it->second.strength;
+            confidence = attn_it->second.confidence;
+        }
+
+        callback(handle, type, name.c_str(), strength, confidence, user_data);
+    }
+#else
+    for (const auto& pair : g_atomspace->atom_types)
+    {
+        GncAtomHandle handle = pair.first;
+        GncAtomType type = pair.second;
+
+        auto name_it = g_atomspace->atom_names.find(handle);
+        std::string name = (name_it != g_atomspace->atom_names.end())
+                                ? name_it->second
+                                : std::string();
+
+        gdouble strength = 0.5, confidence = 0.5;
+        auto tv_it = g_atomspace->truth_values.find(handle);
+        if (tv_it != g_atomspace->truth_values.end())
+        {
+            strength = tv_it->second.first;
+            confidence = tv_it->second.second;
+        }
+
+        callback(handle, type, name.c_str(), strength, confidence, user_data);
+    }
+#endif
+
+    return TRUE;
 }
 
 /********************************************************************\
