@@ -268,6 +268,35 @@ class TestFallbackLoader(unittest.TestCase):
         self.assertEqual(t2.metadata["balance_valid"], False)
         self.assertEqual(t2.metadata["category"], "FEE")
 
+    def test_bank_account_uses_master_accounts_entity_not_first_seen_row(self):
+        # account "111" is owned by RST per MASTER_ACCOUNTS.json, but a later
+        # transaction row mistags it with entity_code "SLG" (e.g. an
+        # intercompany payer field). The bank account must stay parented
+        # under its authoritative owner, not silently move to whichever
+        # entity_code happened to appear on a given row.
+        tx_index = {
+            "transactions": [
+                {"txid": "t1", "date": "2025-01-01", "account_number": "111", "entity_code": "RST",
+                 "amount": 500.0, "transaction_type": "CREDIT", "category": "INCOME",
+                 "description": "sale", "is_intercompany": False, "xero_account_code": "200",
+                 "balance_valid": True, "balance_hash": "abc123"},
+                {"txid": "t2", "date": "2025-01-02", "account_number": "111", "entity_code": "SLG",
+                 "amount": -25.0, "transaction_type": "DEBIT", "category": "FEE",
+                 "description": "mistagged row", "is_intercompany": False, "xero_account_code": None,
+                 "balance_valid": True, "balance_hash": "def456"},
+            ]
+        }
+        with open(os.path.join(self.tmpdir, "transaction_index.json"), "w") as f:
+            json.dump(tx_index, f)
+
+        accounts, txs, source = sf.load_fallback(self.tmpdir)
+        bank_account = next(a for a in accounts if a.code == "BANK-111")
+        self.assertEqual(bank_account.entity_code, "RST")
+        self.assertEqual(bank_account.parent_code, "ENTITY-RST")
+        # only one BANK-111 account should exist -- it must not have been
+        # duplicated or re-parented for the second (SLG-tagged) row
+        self.assertEqual(sum(1 for a in accounts if a.code == "BANK-111"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -274,18 +274,25 @@ def load_fallback(data_dir: str) -> Tuple[List[AccountRec], List[TransactionRec]
         return code
 
     def ensure_bank_account(account_number: Optional[str], entity_code: Optional[str]) -> str:
+        # account_number is the primary key (one bank account belongs to exactly
+        # one entity). MASTER_ACCOUNTS.json's own entity_code is the authoritative
+        # owner; a transaction row's entity_code (e.g. the payer on an intercompany
+        # line) is only used as a fallback when the account has no master record,
+        # so a later row tagged with a different entity_code can't silently move
+        # an already-created account under the wrong entity root.
         code = _bank_account_code(account_number)
+        meta = bank_by_number.get(account_number)
+        owning_entity = (meta.get("entity_code") if meta else None) or entity_code
         if code not in accounts:
-            meta = bank_by_number.get(account_number)
             display_name = meta["account_name"] if meta and meta.get("account_name") else "FNB Account"
             atype_desc = meta["account_type"] if meta and meta.get("account_type") else "Bank Account"
-            parent = ensure_entity_root(entity_code)
+            parent = ensure_entity_root(owning_entity)
             accounts[code] = AccountRec(
                 code=code,
                 name=f"{display_name} ({account_number})",
                 account_type="BANK",
                 parent_code=parent,
-                entity_code=entity_code,
+                entity_code=owning_entity,
                 currency=DEFAULT_CURRENCY,
                 description=atype_desc,
             )
@@ -681,10 +688,12 @@ def cmd_apply(args: argparse.Namespace) -> int:
         return 2
 
     s = plan["summary"]
-    if s["duplicate_txid_count"] or s["unbalanced_transaction_count"] or s["unknown_account_ref_count"]:
+    if not s["clean"]:
         print(
-            "error: plan has blocking issues (duplicate txids / unbalanced transactions / "
-            "unknown account references); run --plan-only and fix the source data first",
+            f"error: plan has {s['issue_count']} blocking issue(s) (duplicate txids, "
+            "unbalanced transactions, unknown account references, unknown parent accounts, "
+            "invalid account types, duplicate account codes, or splitless transactions); "
+            "run --plan-only and fix the source data first",
             file=sys.stderr,
         )
         return 4
