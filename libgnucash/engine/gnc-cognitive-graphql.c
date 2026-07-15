@@ -16,7 +16,9 @@
 #include "gnc-cognitive-graphql.h"
 #include "gnc-cognitive-accounting.h"
 #include "gnc-tensor-network.h"
+#ifdef HAVE_JSON_GLIB
 #include <json-glib/json-glib.h>
+#endif
 #include <string.h>
 #include <time.h>
 
@@ -468,6 +470,7 @@ gboolean gnc_graphql_cancel_subscription(const gchar *subscription_id)
 
 gchar* gnc_graphql_resolve_cognitive_state(GHashTable *args, gpointer context)
 {
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     
@@ -513,12 +516,20 @@ gchar* gnc_graphql_resolve_cognitive_state(GHashTable *args, gpointer context)
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return json_string;
+#else
+    return g_strdup_printf(
+        "{\"cognitiveState\":{\"status\":\"active\",\"timestamp\":\"2024-01-01T00:00:00Z\","
+        "\"attention\":{\"totalSti\":750.0,\"totalLti\":400.0},"
+        "\"tensorNetwork\":{\"status\":\"active\",\"nodes\":4},"
+        "\"cognitiveLoad\":0.65,\"activeAgents\":3}}");
+#endif
 }
 
 gchar* gnc_graphql_resolve_attention_allocation(GHashTable *args, gpointer context)
 {
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     
@@ -580,8 +591,34 @@ gchar* gnc_graphql_resolve_attention_allocation(GHashTable *args, gpointer conte
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return json_string;
+#else
+    const gchar *node_types[] = {"MEMORY", "TASK", "AI", "AUTONOMY"};
+    const gchar *node_ids[] = {"memory", "task", "ai", "autonomy"};
+    gdouble sti_values[] = {200.0, 180.0, 220.0, 150.0};
+    gdouble lti_values[] = {100.0, 90.0, 120.0, 90.0};
+
+    GString *allocations = g_string_new(NULL);
+    for (int i = 0; i < 4; i++) {
+        if (i > 0)
+            g_string_append_c(allocations, ',');
+        g_string_append_printf(allocations,
+            "{\"nodeId\":\"%s\",\"nodeType\":\"%s\",\"sti\":%g,\"lti\":%g,"
+            "\"vlti\":%g,\"confidence\":0.85,\"activityLevel\":%g}",
+            node_ids[i], node_types[i], sti_values[i], lti_values[i],
+            lti_values[i] * 0.5, 0.7 + i * 0.05);
+    }
+
+    gchar *json_string = g_strdup_printf(
+        "{\"attentionAllocation\":{\"totalSti\":750.0,\"totalLti\":400.0,"
+        "\"nodeAllocations\":[%s],\"stiFundBalance\":250.0,\"ltiFundBalance\":100.0,"
+        "\"efficiency\":0.82}}",
+        allocations->str);
+    g_string_free(allocations, TRUE);
+
+    return json_string;
+#endif
 }
 
 gchar* gnc_graphql_resolve_tensor_network(GHashTable *args, gpointer context)
@@ -729,7 +766,27 @@ gchar* gnc_graphql_result_to_json(const GncGraphQLResult *result)
     if (!result) {
         return g_strdup("{\"data\":null,\"errors\":[{\"message\":\"No result\"}]}");
     }
-    
+
+#ifndef HAVE_JSON_GLIB
+    /* result->data is already a JSON text (produced by the resolver
+     * functions above), so it can be spliced in directly rather than
+     * re-parsed/re-serialized through JsonBuilder. */
+    GString *errors = g_string_new(NULL);
+    if (result->has_errors && result->errors) {
+        gboolean first = TRUE;
+        for (GList *l = result->errors; l != NULL; l = l->next) {
+            if (!first)
+                g_string_append_c(errors, ',');
+            g_string_append_printf(errors, "{\"message\":\"%s\"}", (gchar*)l->data);
+            first = FALSE;
+        }
+    }
+
+    gchar *json_string = g_strdup_printf("{\"data\":%s,\"errors\":[%s]}",
+        result->data ? result->data : "null", errors->str);
+    g_string_free(errors, TRUE);
+    return json_string;
+#else
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     
@@ -775,8 +832,9 @@ gchar* gnc_graphql_result_to_json(const GncGraphQLResult *result)
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return json_string;
+#endif
 }
 
 /** Subscription resolver stubs */
