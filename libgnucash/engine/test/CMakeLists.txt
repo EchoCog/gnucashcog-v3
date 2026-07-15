@@ -230,6 +230,10 @@ gnc_add_test(test-ontogenesis-bridge test-ontogenesis-bridge.cpp
 gnc_add_test(test-phase6-comprehensive test-phase6-comprehensive.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Fincosys ecosystem sync bridge test
+gnc_add_test(test-fincosys-bridge test-fincosys-bridge.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 set(test_engine_SOURCES_DIST
         gtest-gnc-euro.cpp
         gtest-gnc-int128.cpp
@@ -251,6 +255,7 @@ set(test_engine_SOURCES_DIST
         test-meta-cognitive.cpp
         test-ontogenesis-bridge.cpp
         test-phase6-comprehensive.cpp
+        test-fincosys-bridge.cpp
         test-commodities.cpp
         test-customer.c
         test-employee.c

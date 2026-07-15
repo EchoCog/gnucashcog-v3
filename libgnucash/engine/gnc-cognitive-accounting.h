@@ -169,6 +169,30 @@ void gnc_atomspace_set_truth_value(GncAtomHandle atom_handle,
 gboolean gnc_atomspace_get_truth_value(GncAtomHandle atom_handle,
                                        gdouble* strength, gdouble* confidence);
 
+/** Callback type for gnc_atomspace_foreach_atom().
+ * @param handle Atom handle
+ * @param type Atom type (ConceptNode, InheritanceLink, etc.)
+ * @param name Atom name (may encode link participants, e.g.
+ *             "InheritanceLink:<child>-><parent>" -- see
+ *             gnc_atomspace_create_inheritance_link())
+ * @param strength Truth strength (0.0-1.0)
+ * @param confidence Truth confidence (0.0-1.0)
+ * @param user_data Caller-supplied context pointer
+ */
+typedef void (*GncAtomForeachCB) (GncAtomHandle handle, GncAtomType type,
+                                  const char* name, gdouble strength,
+                                  gdouble confidence, gpointer user_data);
+
+/** Iterate over every atom currently registered in the cognitive AtomSpace.
+ *  Intended for external export/sync bridges -- see gnc-fincosys-bridge.h,
+ *  which uses this to export the whole AtomSpace to the shared
+ *  "fincosys-ecosystem-sync/v1" schema.
+ * @param callback Function called once per atom
+ * @param user_data Passed through to @a callback
+ * @return TRUE on success, FALSE if the AtomSpace has not been initialized
+ */
+gboolean gnc_atomspace_foreach_atom(GncAtomForeachCB callback, gpointer user_data);
+
 /** @} */
 
 /** @name AtomSpace Integration Functions */

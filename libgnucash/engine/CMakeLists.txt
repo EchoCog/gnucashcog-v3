@@ -64,6 +64,7 @@ set (engine_HEADERS
   gnc-cognitive-unification.h
   gnc-cognitive-api.h
   gnc-cognitive-graphql.h
+  gnc-fincosys-bridge.h
   gnc-virtual-device.h
   gnc-financial-device-driver.h
   gnc-commodity.h
@@ -177,6 +178,7 @@ set (engine_SOURCES
   gnc-cognitive-unification.cpp
   gnc-cognitive-api.c
   gnc-cognitive-graphql.c
+  gnc-fincosys-bridge.cpp
   gnc-virtual-device.cpp
   gnc-financial-device-driver.cpp
   gnc-commodity.cpp
