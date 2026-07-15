@@ -265,6 +265,35 @@ typedef struct {
 
 static GncGraphQLState g_graphql_state = {0};
 
+/** Escape a string for embedding as a JSON string literal. Used only by
+ * the no-json-glib fallback in gnc_graphql_result_to_json() below, which
+ * builds JSON with g_strdup_printf() rather than JsonBuilder (which
+ * escapes automatically) -- without this, a quote or backslash in an
+ * error message would break the JSON payload or inject fields.
+ */
+static gchar* graphql_json_escape_string(const gchar *s)
+{
+    if (!s)
+        return g_strdup("");
+
+    GString *out = g_string_sized_new(strlen(s));
+    for (const gchar *p = s; *p; p++) {
+        switch (*p) {
+            case '"':  g_string_append(out, "\\\""); break;
+            case '\\': g_string_append(out, "\\\\"); break;
+            case '\n': g_string_append(out, "\\n"); break;
+            case '\r': g_string_append(out, "\\r"); break;
+            case '\t': g_string_append(out, "\\t"); break;
+            default:
+                if ((guchar)*p < 0x20)
+                    g_string_append_printf(out, "\\u%04x", (guchar)*p);
+                else
+                    g_string_append_c(out, *p);
+        }
+    }
+    return g_string_free(out, FALSE);
+}
+
 /** Simple GraphQL query parser - extracts operation type and name */
 typedef struct {
     gchar *operation_type;  /**< "query", "mutation", or "subscription" */
@@ -777,7 +806,9 @@ gchar* gnc_graphql_result_to_json(const GncGraphQLResult *result)
         for (GList *l = result->errors; l != NULL; l = l->next) {
             if (!first)
                 g_string_append_c(errors, ',');
-            g_string_append_printf(errors, "{\"message\":\"%s\"}", (gchar*)l->data);
+            gchar *escaped_message = graphql_json_escape_string((gchar*)l->data);
+            g_string_append_printf(errors, "{\"message\":\"%s\"}", escaped_message);
+            g_free(escaped_message);
             first = FALSE;
         }
     }

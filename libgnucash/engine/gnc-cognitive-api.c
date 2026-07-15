@@ -40,6 +40,36 @@ typedef struct {
 
 static GncApiServerState g_api_state = {0};
 
+/** Escape a string for embedding as a JSON string literal.
+ * Used only by the no-json-glib fallback paths below, which build JSON
+ * with g_strdup_printf() rather than JsonBuilder (which escapes
+ * automatically) -- without this, a quote or backslash in an
+ * interpolated value (e.g. a path-derived agent/account id) would break
+ * the JSON payload or inject fields.
+ */
+static gchar* json_escape_string(const gchar *s)
+{
+    if (!s)
+        return g_strdup("");
+
+    GString *out = g_string_sized_new(strlen(s));
+    for (const gchar *p = s; *p; p++) {
+        switch (*p) {
+            case '"':  g_string_append(out, "\\\""); break;
+            case '\\': g_string_append(out, "\\\\"); break;
+            case '\n': g_string_append(out, "\\n"); break;
+            case '\r': g_string_append(out, "\\r"); break;
+            case '\t': g_string_append(out, "\\t"); break;
+            default:
+                if ((guchar)*p < 0x20)
+                    g_string_append_printf(out, "\\u%04x", (guchar)*p);
+                else
+                    g_string_append_c(out, *p);
+        }
+    }
+    return g_string_free(out, FALSE);
+}
+
 /** Helper function to create JSON response */
 static GncApiResponse* create_json_response(GncApiStatus status, const gchar *json_data)
 {
@@ -88,9 +118,11 @@ static GncApiResponse* create_error_response(GncApiStatus status, const gchar *m
     /* JSON-GLib not available at build time -- hand-build the same shape,
      * matching this file's own no-json-glib endpoints below
      * (gnc_api_get_network_status, gnc_api_submit_transaction, ...). */
+    gchar *escaped_message = json_escape_string(message);
     gchar *json_string = g_strdup_printf(
         "{\"error\":\"%s\",\"status\":%d,\"timestamp\":%" G_GINT64_FORMAT "}",
-        message ? message : "", (gint)status, (gint64)time(NULL));
+        escaped_message, (gint)status, (gint64)time(NULL));
+    g_free(escaped_message);
     GncApiResponse *response = create_json_response(status, json_string);
     g_free(json_string);
     return response;
@@ -545,9 +577,11 @@ GncApiResponse* gnc_api_unregister_agent(const GncApiRequest *request)
 
     return response;
 #else
+    gchar *escaped_agent_id = json_escape_string(agent_id);
     gchar *json_string = g_strdup_printf(
         "{\"agent_id\":\"%s\",\"status\":\"unregistered\",\"timestamp\":%" G_GINT64_FORMAT "}",
-        agent_id, (gint64)time(NULL));
+        escaped_agent_id, (gint64)time(NULL));
+    g_free(escaped_agent_id);
     GncApiResponse *response = create_json_response(GNC_API_STATUS_OK, json_string);
     g_free(json_string);
     g_free(agent_id);
@@ -717,8 +751,11 @@ gboolean gnc_web_agent_unregister(const gchar *agent_id) { return TRUE; }
 
 gchar* gnc_web_agent_process_command(const gchar *agent_id, const gchar *command)
 {
-    return g_strdup_printf("{\"result\":\"command_processed\",\"agent_id\":\"%s\"}",
-                            agent_id ? agent_id : "");
+    gchar *escaped_agent_id = json_escape_string(agent_id);
+    gchar *result = g_strdup_printf("{\"result\":\"command_processed\",\"agent_id\":\"%s\"}",
+                                     escaped_agent_id);
+    g_free(escaped_agent_id);
+    return result;
 }
 
 gchar* gnc_web_agent_get_interface(const gchar *agent_id)
