@@ -272,7 +272,11 @@ gboolean gnc_tensor_data_from_accounts(GncTensorData *tensor, GList *accounts)
         tensor->data[idx++] = (gfloat)gnc_numeric_to_double(xaccAccountGetBalance(acc));
         tensor->data[idx++] = (gfloat)gnc_account_get_current_depth(acc);
         tensor->data[idx++] = (gfloat)gnc_account_n_children(acc);
-        tensor->data[idx++] = xaccAccountGetReconcileLastDate(acc);
+
+        time64 reconcile_last_date = 0;
+        xaccAccountGetReconcileLastDate(acc, &reconcile_last_date);
+        tensor->data[idx++] = (gfloat)reconcile_last_date;
+
         tensor->data[idx++] = 1.0f;  // Account validity
     }
     
@@ -654,7 +658,8 @@ gboolean gnc_tensor_network_synchronize(GncTensorNetwork *network)
     network->network_timestamp = g_get_real_time();
     
     // Send sync message to all nodes
-    GncTensorData *sync_payload = gnc_tensor_data_create("sync", 1, (gsize[]){1});
+    gsize sync_shape[1] = {1};
+    GncTensorData *sync_payload = gnc_tensor_data_create("sync", 1, sync_shape);
     sync_payload->data[0] = (gfloat)network->network_timestamp;
     
     gnc_tensor_network_broadcast_message(network, "network", "sync", sync_payload);
