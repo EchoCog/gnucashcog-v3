@@ -574,7 +574,7 @@ GncNeuralSymbolicEmbedding* gnc_neural_symbolic_embedding_create(
     embedding->concept_id = concept_id;
     embedding->vector_dimension = vector_dimension;
     embedding->embedding_vector = g_new(gdouble, vector_dimension);
-    embedding->symbolic_representation = g_strdup_printf("concept_%lu", concept_id);
+    embedding->symbolic_representation = g_strdup_printf("concept_%" G_GUINT64_FORMAT, concept_id);
     embedding->embedding_confidence = 0.5;
     
     // Initialize with random values (simple initialization)

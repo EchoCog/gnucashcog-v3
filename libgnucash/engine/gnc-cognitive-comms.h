@@ -131,8 +131,17 @@ void gnc_cognitive_send_message(GncCognitiveModule from_module,
 /** Receive messages for a cognitive module
  * @param module Module to receive messages for
  * @return Vector of received messages
+ *
+ * Declared with C++ linkage (outside the extern "C" block below) since
+ * std::vector<GncCognitiveMessage> is not a type C linkage can express.
  */
+#ifdef __cplusplus
+}
+#endif
 std::vector<GncCognitiveMessage> gnc_cognitive_receive_messages(GncCognitiveModule module);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Broadcast message to all active modules
  * @param from_module Source module

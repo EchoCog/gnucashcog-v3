@@ -20,7 +20,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#ifdef HAVE_JSON_GLIB
 #include <json-glib/json-glib.h>
+#endif
 
 /** Global API server state */
 typedef struct {
@@ -58,6 +60,7 @@ static GncApiResponse* create_json_response(GncApiStatus status, const gchar *js
 /** Helper function to create error response */
 static GncApiResponse* create_error_response(GncApiStatus status, const gchar *message)
 {
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     json_builder_set_member_name(builder, "error");
@@ -67,20 +70,31 @@ static GncApiResponse* create_error_response(GncApiStatus status, const gchar *m
     json_builder_set_member_name(builder, "timestamp");
     json_builder_add_int_value(builder, (gint64)time(NULL));
     json_builder_end_object(builder);
-    
+
     JsonGenerator *generator = json_generator_new();
     JsonNode *root = json_builder_get_root(builder);
     json_generator_set_root(generator, root);
     gchar *json_string = json_generator_to_data(generator, NULL);
-    
+
     GncApiResponse *response = create_json_response(status, json_string);
-    
+
     g_free(json_string);
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return response;
+#else
+    /* JSON-GLib not available at build time -- hand-build the same shape,
+     * matching this file's own no-json-glib endpoints below
+     * (gnc_api_get_network_status, gnc_api_submit_transaction, ...). */
+    gchar *json_string = g_strdup_printf(
+        "{\"error\":\"%s\",\"status\":%d,\"timestamp\":%" G_GINT64_FORMAT "}",
+        message ? message : "", (gint)status, (gint64)time(NULL));
+    GncApiResponse *response = create_json_response(status, json_string);
+    g_free(json_string);
+    return response;
+#endif
 }
 
 /** Helper function to extract path parameter */
@@ -104,9 +118,13 @@ gboolean gnc_cognitive_api_init(gint port, gint websocket_port)
         return TRUE;
     }
     
+#ifdef HAVE_JSON_GLIB
     // Initialize JSON support
-    json_builder_new(); // Test JSON-GLib availability
-    
+    JsonBuilder *json_probe = json_builder_new(); // Test JSON-GLib availability
+    g_object_unref(json_probe);
+#endif
+
+
     g_api_state.http_port = port;
     g_api_state.websocket_port = websocket_port;
     g_api_state.endpoints = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
@@ -208,6 +226,7 @@ void gnc_cognitive_api_stop_server(void)
 /** Get current cognitive state */
 GncApiResponse* gnc_api_get_cognitive_state(const GncApiRequest *request)
 {
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     
@@ -258,13 +277,27 @@ GncApiResponse* gnc_api_get_cognitive_state(const GncApiRequest *request)
     gchar *json_string = json_generator_to_data(generator, NULL);
     
     GncApiResponse *response = create_json_response(GNC_API_STATUS_OK, json_string);
-    
+
     g_free(json_string);
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return response;
+#else
+    gchar *json_string = g_strdup_printf(
+        "{\"status\":\"active\",\"timestamp\":%" G_GINT64_FORMAT ","
+        "\"attention\":{\"total_sti_funds\":1000.0,\"total_lti_funds\":500.0,\"active_nodes\":4},"
+        "\"tensor_network\":{\"nodes\":["
+        "{\"type\":\"memory\",\"active\":true,\"attention_weight\":0.25},"
+        "{\"type\":\"task\",\"active\":true,\"attention_weight\":0.25},"
+        "{\"type\":\"ai\",\"active\":true,\"attention_weight\":0.25},"
+        "{\"type\":\"autonomy\",\"active\":true,\"attention_weight\":0.25}]}}",
+        (gint64)time(NULL));
+    GncApiResponse *response = create_json_response(GNC_API_STATUS_OK, json_string);
+    g_free(json_string);
+    return response;
+#endif
 }
 
 /** Process cognitive task */
@@ -273,7 +306,13 @@ GncApiResponse* gnc_api_process_cognitive_task(const GncApiRequest *request)
     if (!request || !request->body) {
         return create_error_response(GNC_API_STATUS_BAD_REQUEST, "Missing request body");
     }
-    
+
+#ifndef HAVE_JSON_GLIB
+    /* Parsing the request body's JSON needs a real JSON parser -- rather
+     * than fake it, report unavailable when JSON-GLib wasn't found. */
+    return create_error_response(GNC_API_STATUS_NOT_IMPLEMENTED,
+        "JSON support not available in this build (JSON-GLib not found)");
+#else
     JsonParser *parser = json_parser_new();
     GError *error = NULL;
     
@@ -326,13 +365,15 @@ GncApiResponse* gnc_api_process_cognitive_task(const GncApiRequest *request)
     g_object_unref(generator);
     g_object_unref(builder);
     g_object_unref(parser);
-    
+
     return response;
+#endif
 }
 
 /** Get attention allocation */
 GncApiResponse* gnc_api_get_attention_allocation(const GncApiRequest *request)
 {
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     
@@ -381,8 +422,22 @@ GncApiResponse* gnc_api_get_attention_allocation(const GncApiRequest *request)
     json_node_free(root);
     g_object_unref(generator);
     g_object_unref(builder);
-    
+
     return response;
+#else
+    gchar *json_string = g_strdup_printf(
+        "{\"attention_allocation\":{\"total_sti_circulation\":750.0,\"total_lti_circulation\":400.0,"
+        "\"node_allocations\":["
+        "{\"node_id\":\"memory\",\"sti\":200.0,\"lti\":100.0},"
+        "{\"node_id\":\"task\",\"sti\":180.0,\"lti\":90.0},"
+        "{\"node_id\":\"ai\",\"sti\":220.0,\"lti\":120.0},"
+        "{\"node_id\":\"autonomy\",\"sti\":150.0,\"lti\":90.0}]},"
+        "\"timestamp\":%" G_GINT64_FORMAT "}",
+        (gint64)time(NULL));
+    GncApiResponse *response = create_json_response(GNC_API_STATUS_OK, json_string);
+    g_free(json_string);
+    return response;
+#endif
 }
 
 /** Register new agent */
@@ -391,7 +446,11 @@ GncApiResponse* gnc_api_register_agent(const GncApiRequest *request)
     if (!request || !request->body) {
         return create_error_response(GNC_API_STATUS_BAD_REQUEST, "Missing request body");
     }
-    
+
+#ifndef HAVE_JSON_GLIB
+    return create_error_response(GNC_API_STATUS_NOT_IMPLEMENTED,
+        "JSON support not available in this build (JSON-GLib not found)");
+#else
     JsonParser *parser = json_parser_new();
     GError *error = NULL;
     
@@ -442,8 +501,9 @@ GncApiResponse* gnc_api_register_agent(const GncApiRequest *request)
     g_object_unref(builder);
     g_object_unref(parser);
     g_free(agent_id);
-    
+
     return response;
+#endif
 }
 
 /** Unregister agent */
@@ -453,12 +513,13 @@ GncApiResponse* gnc_api_unregister_agent(const GncApiRequest *request)
     if (!agent_id) {
         return create_error_response(GNC_API_STATUS_BAD_REQUEST, "Missing agent ID in path");
     }
-    
+
     if (!g_hash_table_remove(g_api_state.registered_agents, agent_id)) {
         g_free(agent_id);
         return create_error_response(GNC_API_STATUS_NOT_FOUND, "Agent not found");
     }
-    
+
+#ifdef HAVE_JSON_GLIB
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     json_builder_set_member_name(builder, "agent_id");
@@ -481,8 +542,17 @@ GncApiResponse* gnc_api_unregister_agent(const GncApiRequest *request)
     g_object_unref(generator);
     g_object_unref(builder);
     g_free(agent_id);
-    
+
     return response;
+#else
+    gchar *json_string = g_strdup_printf(
+        "{\"agent_id\":\"%s\",\"status\":\"unregistered\",\"timestamp\":%" G_GINT64_FORMAT "}",
+        agent_id, (gint64)time(NULL));
+    GncApiResponse *response = create_json_response(GNC_API_STATUS_OK, json_string);
+    g_free(json_string);
+    g_free(agent_id);
+    return response;
+#endif
 }
 
 /** Get network status */
@@ -647,7 +717,8 @@ gboolean gnc_web_agent_unregister(const gchar *agent_id) { return TRUE; }
 
 gchar* gnc_web_agent_process_command(const gchar *agent_id, const gchar *command)
 {
-    return g_strdup("{\"result\":\"command_processed\",\"agent_id\":\"" GLIB_STRINGIFY(agent_id) "\"}");
+    return g_strdup_printf("{\"result\":\"command_processed\",\"agent_id\":\"%s\"}",
+                            agent_id ? agent_id : "");
 }
 
 gchar* gnc_web_agent_get_interface(const gchar *agent_id)

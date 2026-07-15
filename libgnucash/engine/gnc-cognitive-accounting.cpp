@@ -1266,11 +1266,9 @@ GncAtomHandle gnc_optimize_distributed_attention(gdouble cognitive_load,
     
     // Update fund totals based on optimization
     gdouble total_current_sti = 0.0;
-    gdouble total_current_lti = 0.0;
-    
+
     for (auto& param_pair : g_atomspace->attention_params) {
         total_current_sti += param_pair.second.sti;
-        total_current_lti += param_pair.second.lti;
     }
     
     // Ensure fund conservation
@@ -1494,20 +1492,18 @@ void gnc_ecan_allocate_attention(Account **accounts, gint n_accounts)
     }
     
     // Enhanced ECAN-style attention allocation with sophisticated cognitive economics
-    gdouble total_sti = 0.0;
     gdouble total_lti = 0.0;
     gdouble total_activity = 0.0;
     std::vector<GncAtomHandle> account_handles;
     std::vector<gdouble> activity_scores;
-    
+
     // Collect all account handles and calculate totals
     for (gint i = 0; i < n_accounts; i++) {
         auto it = g_atomspace->account_atoms.find(accounts[i]);
         if (it != g_atomspace->account_atoms.end()) {
             account_handles.push_back(it->second);
             auto& params = g_atomspace->attention_params[it->second];
-            
-            total_sti += params.sti;
+
             total_lti += params.lti;
             total_activity += params.activity_level;
             
@@ -2273,7 +2269,7 @@ gchar* gnc_ecan_scheduler_submit_task(const gchar *task_type,
     
     // Create new cognitive task
     GncCognitiveTask *task = g_new0(GncCognitiveTask, 1);
-    task->task_id = g_strdup_printf("task_%lu", g_task_scheduler.next_task_id++);
+    task->task_id = g_strdup_printf("task_%" G_GUINT64_FORMAT, g_task_scheduler.next_task_id++);
     task->task_type = g_strdup(task_type);
     task->priority = priority;
     task->attention_requirement = attention_requirement;
@@ -2837,7 +2833,6 @@ gdouble gnc_ure_transaction_validity(const Transaction *transaction)
     gdouble temporal_uncertainty = 1.0;
     gdouble account_reliability_factor = 1.0;
     gdouble pattern_consistency_factor = 1.0;
-    gdouble economic_context_factor = 1.0;
     
     // Complexity-based uncertainty (more complex = more uncertain)
     if (split_count > 2) {
