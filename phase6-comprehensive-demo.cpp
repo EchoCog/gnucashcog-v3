@@ -941,9 +941,6 @@ int main(int argc, char** argv) {
     std::cout << "\n";
     wait_for_user();
     
-    // Initialize GLib type system
-    g_type_init();
-    
     try {
         // Section 1: System initialization
         demonstrate_unified_system_initialization();
