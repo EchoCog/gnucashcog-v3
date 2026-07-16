@@ -690,6 +690,68 @@ GList* gnc_transaction_to_cognitive_primitives(Transaction *transaction)
     return primitives;
 }
 
+gboolean gnc_cognitive_primitives_validate_consistency(
+    GList *primitives,
+    gdouble *consistency_score)
+{
+    if (!primitives || !consistency_score) return FALSE;
+
+    gdouble total_activation = 0.0;
+    gdouble min_activation = 1.0;
+    gdouble max_activation = 0.0;
+    guint count = 0;
+
+    for (GList *iter = primitives; iter; iter = iter->next) {
+        GncCognitivePrimitiveUnit *prim = (GncCognitivePrimitiveUnit*)iter->data;
+        if (!prim) continue;
+        gdouble activation = prim->activation_level;
+
+        total_activation += activation;
+        if (activation < min_activation) min_activation = activation;
+        if (activation > max_activation) max_activation = activation;
+        count++;
+    }
+
+    if (count == 0) {
+        *consistency_score = 0.0;
+        return FALSE;
+    }
+
+    gdouble avg_activation = total_activation / count;
+    gdouble activation_variance = (max_activation - min_activation) /
+                                  (max_activation + min_activation + 0.01);
+
+    /* Consistency is higher when variance is lower and average activation is moderate */
+    *consistency_score = (1.0 - activation_variance) *
+                         (1.0 - std::abs(avg_activation - 0.5) * 2.0);
+
+    return *consistency_score > 0.5;
+}
+
+gboolean gnc_cognitive_primitives_integrate_atomspace(void)
+{
+    /* Signal readiness to interface with an AtomSpace system.
+     * When a real AtomSpace integration layer is present this function
+     * would initialise the bridge; for now the primitive layer is
+     * considered unconditionally ready. */
+    return primitives_initialized;
+}
+
+gboolean gnc_cognitive_primitives_integrate_tensor_network(void)
+{
+    /* Signal readiness to interface with a tensor-network layer.
+     * Returns TRUE when the primitive registry has been initialised. */
+    return primitives_initialized;
+}
+
+gboolean gnc_cognitive_primitives_integrate_ecan(void)
+{
+    /* Signal readiness to interface with the Economic Attention
+     * Allocation Network (ECAN).
+     * Returns TRUE when the primitive registry has been initialised. */
+    return primitives_initialized;
+}
+
 GncCognitivePrimitiveStats* gnc_cognitive_primitives_get_stats(void)
 {
     if (!primitives_initialized) return NULL;
