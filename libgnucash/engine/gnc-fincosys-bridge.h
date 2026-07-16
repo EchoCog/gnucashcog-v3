@@ -56,6 +56,40 @@ extern "C"
  */
 gchar *gnc_cognitive_export_fincosys_json (void);
 
+/** Parse a JSON document matching the shared Fincosys Ecosystem Sync
+ *  Schema v1 (as produced by gnc_cognitive_export_fincosys_json(),
+ *  gnucashm's gnc_organizations_to_fincosys_json(), or by
+ *  fincosys-atomspace-builder's EcosystemSyncExporter) and materialize its
+ *  \c "atoms" and \c "links" into the cognitive AtomSpace, remapping each
+ *  document-supplied \c "id" onto a freshly created local
+ *  ::GncAtomHandle (the ids in an imported document belong to a
+ *  different AtomSpace instance's numbering and cannot be reused
+ *  directly).
+ *
+ *  Only atom/link kinds with a public creation function are
+ *  reconstructed: \c "ConceptNode" and \c "PredicateNode" atoms, and
+ *  \c "InheritanceLink" / \c "EvaluationLink" / \c "HierarchyLink" links
+ *  (via gnc_atomspace_create_concept_node(),
+ *  gnc_atomspace_create_predicate_node(),
+ *  gnc_atomspace_create_inheritance_link(),
+ *  gnc_atomspace_create_evaluation_link(), and
+ *  gnc_atomspace_create_hierarchy_link() respectively). Records of any
+ *  other type, and links whose participant ids didn't resolve to an
+ *  imported atom, are skipped (logged) rather than aborting the whole
+ *  import -- this bridge only ever gains ground on each sync, it never
+ *  needs to roll back.
+ *
+ *  Each imported atom's truth value is applied via
+ *  gnc_atomspace_set_truth_value() from the document's \c "truth_value"
+ *  object, defaulting to (1.0, 1.0) when absent.
+ *
+ *  @param json The JSON document text.
+ *  @return The number of atoms plus links imported, or -1 if @a json
+ *          could not be parsed or the cognitive AtomSpace has not been
+ *          initialized (see gnc_cognitive_accounting_init()).
+ */
+gint gnc_cognitive_import_fincosys_json (const gchar *json);
+
 #ifdef __cplusplus
 }
 #endif

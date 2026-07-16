@@ -17,12 +17,322 @@
 #include "gnc-cognitive-accounting.h"
 
 #include <cctype>
+#include <cstring>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace
 {
+
+/*
+ * Minimal JSON value type + parser, scoped to the shape of the Fincosys
+ * Ecosystem Sync Schema v1 (nested objects/arrays of strings, numbers,
+ * booleans and null -- see fincosys-atomspace-builder's README). Mirrors
+ * the parser in gnucashm's gnc-fincosys-sync.cpp; duplicated here rather
+ * than shared since the two engines are separate codebases with no
+ * common dependency to host it in.
+ */
+class JsonValue
+{
+public:
+    enum class Type { Null, Bool, Number, String, Array, Object };
+
+    JsonValue () : m_type (Type::Null) {}
+
+    static JsonValue make_object () { JsonValue v; v.m_type = Type::Object; return v; }
+    static JsonValue make_array () { JsonValue v; v.m_type = Type::Array; return v; }
+    static JsonValue make_string (std::string s)
+    {
+        JsonValue v;
+        v.m_type = Type::String;
+        v.m_string = std::move (s);
+        return v;
+    }
+    static JsonValue make_number (double d)
+    {
+        JsonValue v;
+        v.m_type = Type::Number;
+        v.m_number = d;
+        return v;
+    }
+    static JsonValue make_bool (bool b)
+    {
+        JsonValue v;
+        v.m_type = Type::Bool;
+        v.m_bool = b;
+        return v;
+    }
+
+    Type type () const { return m_type; }
+    bool is_object () const { return m_type == Type::Object; }
+    bool is_array () const { return m_type == Type::Array; }
+
+    const std::vector<JsonValue> &items () const { return m_array; }
+    void push_back (JsonValue val) { m_array.push_back (std::move (val)); }
+
+    void set (const std::string &key, JsonValue val) { m_object[key] = std::move (val); }
+
+    const JsonValue *find (const std::string &key) const
+    {
+        auto it = m_object.find (key);
+        return it == m_object.end () ? nullptr : &it->second;
+    }
+
+    const std::map<std::string, JsonValue> &object_items () const { return m_object; }
+
+    std::string get_string (const std::string &key, const std::string &def = "") const
+    {
+        auto *v = find (key);
+        return (v && v->m_type == Type::String) ? v->m_string : def;
+    }
+
+    double get_number (const std::string &key, double def = 0.0) const
+    {
+        auto *v = find (key);
+        return (v && v->m_type == Type::Number) ? v->m_number : def;
+    }
+
+    bool get_bool (const std::string &key, bool def = false) const
+    {
+        auto *v = find (key);
+        return (v && v->m_type == Type::Bool) ? v->m_bool : def;
+    }
+
+    /* Direct accessor for a value that IS a string itself (e.g. one
+     * element of an array), as opposed to get_string(key) which looks up
+     * a string-valued field within an object. */
+    std::string as_string (const std::string &def = "") const
+    {
+        return m_type == Type::String ? m_string : def;
+    }
+
+private:
+    Type m_type;
+    std::string m_string;
+    double m_number = 0.0;
+    bool m_bool = false;
+    std::vector<JsonValue> m_array;
+    std::map<std::string, JsonValue> m_object;
+};
+
+class JsonParser
+{
+public:
+    explicit JsonParser (std::string text) : m_text (std::move (text)), m_pos (0) {}
+
+    bool parse (JsonValue &out)
+    {
+        skip_ws ();
+        if (!parse_value (out))
+            return false;
+        skip_ws ();
+        return eof ();
+    }
+
+private:
+    std::string m_text;
+    size_t m_pos;
+
+    void skip_ws ()
+    {
+        while (m_pos < m_text.size () && std::isspace (static_cast<unsigned char> (m_text[m_pos])))
+            ++m_pos;
+    }
+
+    bool eof () const { return m_pos >= m_text.size (); }
+    char peek () const { return m_text[m_pos]; }
+
+    bool consume (char c)
+    {
+        skip_ws ();
+        if (eof () || m_text[m_pos] != c)
+            return false;
+        ++m_pos;
+        return true;
+    }
+
+    bool literal (const char *lit)
+    {
+        size_t len = std::strlen (lit);
+        if (m_text.compare (m_pos, len, lit) == 0)
+        {
+            m_pos += len;
+            return true;
+        }
+        return false;
+    }
+
+    bool parse_value (JsonValue &out)
+    {
+        skip_ws ();
+        if (eof ())
+            return false;
+
+        switch (peek ())
+        {
+            case '{':
+                return parse_object (out);
+            case '[':
+                return parse_array (out);
+            case '"':
+            {
+                std::string s;
+                if (!parse_string (s))
+                    return false;
+                out = JsonValue::make_string (std::move (s));
+                return true;
+            }
+            case 't':
+                if (!literal ("true"))
+                    return false;
+                out = JsonValue::make_bool (true);
+                return true;
+            case 'f':
+                if (!literal ("false"))
+                    return false;
+                out = JsonValue::make_bool (false);
+                return true;
+            case 'n':
+                if (!literal ("null"))
+                    return false;
+                out = JsonValue ();
+                return true;
+            default:
+                return parse_number (out);
+        }
+    }
+
+    bool parse_object (JsonValue &out)
+    {
+        if (!consume ('{'))
+            return false;
+        out = JsonValue::make_object ();
+        skip_ws ();
+        if (consume ('}'))
+            return true;
+
+        for (;;)
+        {
+            std::string key;
+            skip_ws ();
+            if (!parse_string (key))
+                return false;
+            if (!consume (':'))
+                return false;
+
+            JsonValue val;
+            if (!parse_value (val))
+                return false;
+            out.set (key, std::move (val));
+
+            skip_ws ();
+            if (consume (','))
+                continue;
+            if (consume ('}'))
+                break;
+            return false;
+        }
+        return true;
+    }
+
+    bool parse_array (JsonValue &out)
+    {
+        if (!consume ('['))
+            return false;
+        out = JsonValue::make_array ();
+        skip_ws ();
+        if (consume (']'))
+            return true;
+
+        for (;;)
+        {
+            JsonValue val;
+            if (!parse_value (val))
+                return false;
+            out.push_back (std::move (val));
+
+            skip_ws ();
+            if (consume (','))
+                continue;
+            if (consume (']'))
+                break;
+            return false;
+        }
+        return true;
+    }
+
+    bool parse_string (std::string &out)
+    {
+        if (!consume ('"'))
+            return false;
+        out.clear ();
+
+        while (!eof () && m_text[m_pos] != '"')
+        {
+            char c = m_text[m_pos++];
+            if (c == '\\' && !eof ())
+            {
+                char esc = m_text[m_pos++];
+                switch (esc)
+                {
+                    case '"': out += '"'; break;
+                    case '\\': out += '\\'; break;
+                    case '/': out += '/'; break;
+                    case 'n': out += '\n'; break;
+                    case 't': out += '\t'; break;
+                    case 'r': out += '\r'; break;
+                    case 'b': out += '\b'; break;
+                    case 'f': out += '\f'; break;
+                    case 'u':
+                        /* Minimal support: the sync schema doesn't use
+                         * non-ASCII codes/keys in practice, so \u escapes
+                         * are skipped rather than decoded. */
+                        if (m_pos + 4 <= m_text.size ())
+                            m_pos += 4;
+                        out += '?';
+                        break;
+                    default:
+                        out += esc;
+                        break;
+                }
+            }
+            else
+            {
+                out += c;
+            }
+        }
+        if (eof ())
+            return false;
+        ++m_pos; /* closing quote */
+        return true;
+    }
+
+    bool parse_number (JsonValue &out)
+    {
+        size_t start = m_pos;
+        if (!eof () && (peek () == '-' || peek () == '+'))
+            ++m_pos;
+        while (!eof () &&
+               (std::isdigit (static_cast<unsigned char> (peek ())) || peek () == '.' ||
+                peek () == 'e' || peek () == 'E' || peek () == '+' || peek () == '-'))
+            ++m_pos;
+        if (m_pos == start)
+            return false;
+
+        std::string numstr = m_text.substr (start, m_pos - start);
+        try
+        {
+            out = JsonValue::make_number (std::stod (numstr));
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
+    }
+};
 
 struct AtomRecord
 {
@@ -266,4 +576,177 @@ gnc_cognitive_export_fincosys_json(void)
     out << "}\n";
 
     return g_strdup(out.str().c_str());
+}
+
+namespace
+{
+
+/* Given a link's "roles" object (document atom-id string -> role name
+ * string, e.g. {"1000": "child", "1001": "parent"}) find whichever id is
+ * tagged @a role_name. Falls back to @a fallback_id when "roles" is
+ * absent, isn't an object, or no entry names @a role_name -- so a link
+ * still imports (with a best-effort/positional pairing) even against a
+ * producer that omits "roles". */
+std::string
+find_id_with_role (const JsonValue *roles, const std::string &role_name,
+                    const std::string &fallback_id)
+{
+    if (roles == nullptr || !roles->is_object ())
+        return fallback_id;
+
+    for (const auto &entry : roles->object_items ())
+    {
+        if (entry.second.as_string () == role_name)
+            return entry.first;
+    }
+    return fallback_id;
+}
+
+} // namespace
+
+gint
+gnc_cognitive_import_fincosys_json (const gchar *json)
+{
+    g_return_val_if_fail (json != nullptr, -1);
+
+    JsonValue root;
+    JsonParser parser (json);
+    if (!parser.parse (root) || !root.is_object ())
+    {
+        g_warning ("gnc_cognitive_import_fincosys_json: invalid JSON document");
+        return -1;
+    }
+
+    const JsonValue *atoms = root.find ("atoms");
+    const JsonValue *links = root.find ("links");
+    if ((atoms == nullptr || !atoms->is_array ()) &&
+        (links == nullptr || !links->is_array ()))
+        return 0;
+
+    /* Remap each document-supplied "id" onto a freshly created local
+     * GncAtomHandle -- imported ids belong to a different AtomSpace
+     * instance's numbering and must never be reused directly. */
+    std::map<std::string, GncAtomHandle> handle_by_doc_id;
+    gint count = 0;
+
+    if (atoms != nullptr && atoms->is_array ())
+    {
+        for (const JsonValue &atom_val : atoms->items ())
+        {
+            if (!atom_val.is_object ())
+                continue;
+
+            std::string doc_id = atom_val.get_string ("id");
+            std::string atom_type = atom_val.get_string ("atom_type");
+            std::string label = atom_val.get_string ("label");
+            if (doc_id.empty ())
+                continue;
+
+            GncAtomHandle handle;
+            if (atom_type == "ConceptNode")
+                handle = gnc_atomspace_create_concept_node (label.c_str ());
+            else if (atom_type == "PredicateNode")
+                handle = gnc_atomspace_create_predicate_node (label.c_str ());
+            else
+            {
+                /* No public creation function exists for SchemaNode,
+                 * GroundedSchemaNode, ComboNode, etc. -- skip rather than
+                 * fabricate a node of the wrong kind. */
+                g_warning ("gnc_cognitive_import_fincosys_json: unsupported "
+                           "atom_type '%s' for id '%s', skipping",
+                           atom_type.c_str (), doc_id.c_str ());
+                continue;
+            }
+
+            const JsonValue *tv = atom_val.find ("truth_value");
+            gdouble strength = tv ? tv->get_number ("strength", 1.0) : 1.0;
+            gdouble confidence = tv ? tv->get_number ("confidence", 1.0) : 1.0;
+            gnc_atomspace_set_truth_value (handle, strength, confidence);
+
+            handle_by_doc_id[doc_id] = handle;
+            ++count;
+        }
+    }
+
+    if (links != nullptr && links->is_array ())
+    {
+        for (const JsonValue &link_val : links->items ())
+        {
+            if (!link_val.is_object ())
+                continue;
+
+            std::string link_type = link_val.get_string ("link_type");
+            const JsonValue *link_atoms = link_val.find ("atoms");
+            if (link_atoms == nullptr || !link_atoms->is_array () ||
+                link_atoms->items ().size () != 2)
+                continue;
+
+            std::string positional_a = link_atoms->items ()[0].as_string ();
+            std::string positional_b = link_atoms->items ()[1].as_string ();
+            const JsonValue *roles = link_val.find ("roles");
+
+            /* Resolve which document id plays which named role, per link
+             * kind -- matching roles_for_link_type() on the export side.
+             * Falls back to positional_a/positional_b when "roles" doesn't
+             * resolve the role, so links still import against a producer
+             * that omits "roles" entirely. */
+            std::string child_id, parent_id, predicate_id, account_id;
+            std::string doc_id_a, doc_id_b;
+            if (link_type == "EvaluationLink")
+            {
+                predicate_id = find_id_with_role (roles, "predicate", positional_a);
+                account_id = find_id_with_role (roles, "account", positional_b);
+                doc_id_a = predicate_id;
+                doc_id_b = account_id;
+            }
+            else /* InheritanceLink and HierarchyLink both resolve to a
+                  * child/parent pair -- only the creation function differs
+                  * below (child-first vs parent-first argument order). */
+            {
+                child_id = find_id_with_role (roles, "child", positional_a);
+                parent_id = find_id_with_role (roles, "parent", positional_b);
+                doc_id_a = child_id;
+                doc_id_b = parent_id;
+            }
+
+            auto it_a = handle_by_doc_id.find (doc_id_a);
+            auto it_b = handle_by_doc_id.find (doc_id_b);
+            if (it_a == handle_by_doc_id.end () || it_b == handle_by_doc_id.end ())
+            {
+                /* Participant wasn't in this document's "atoms" array (or
+                 * was an unsupported atom_type we skipped above) -- the
+                 * link can't be reconstructed without both endpoints. */
+                g_warning ("gnc_cognitive_import_fincosys_json: link_type "
+                           "'%s' references an unresolved participant, "
+                           "skipping", link_type.c_str ());
+                continue;
+            }
+
+            GncAtomHandle handle;
+            if (link_type == "EvaluationLink")
+                handle = gnc_atomspace_create_evaluation_link (it_a->second, it_b->second, 1.0);
+            else if (link_type == "HierarchyLink")
+                handle = gnc_atomspace_create_hierarchy_link (it_b->second, it_a->second);
+            else if (link_type == "InheritanceLink")
+                handle = gnc_atomspace_create_inheritance_link (it_a->second, it_b->second);
+            else
+            {
+                /* No public creation function for SimilarityLink,
+                 * MemberLink, ExecutionLink, ImplicationLink, AndLink,
+                 * OrLink, etc. */
+                g_warning ("gnc_cognitive_import_fincosys_json: unsupported "
+                           "link_type '%s', skipping", link_type.c_str ());
+                continue;
+            }
+
+            const JsonValue *tv = link_val.find ("truth_value");
+            gdouble strength = tv ? tv->get_number ("strength", 1.0) : 1.0;
+            gdouble confidence = tv ? tv->get_number ("confidence", 1.0) : 1.0;
+            gnc_atomspace_set_truth_value (handle, strength, confidence);
+
+            ++count;
+        }
+    }
+
+    return count;
 }
