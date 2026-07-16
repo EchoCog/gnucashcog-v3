@@ -158,3 +158,124 @@ TEST_F(FincosysBridgeTest, TruthValueRoundTripsIntoExport)
 
     g_free(json);
 }
+
+TEST_F(FincosysBridgeTest, ImportNullJsonReturnsMinusOne)
+{
+    EXPECT_EQ(-1, gnc_cognitive_import_fincosys_json(nullptr));
+}
+
+TEST_F(FincosysBridgeTest, ImportInvalidJsonReturnsMinusOne)
+{
+    EXPECT_EQ(-1, gnc_cognitive_import_fincosys_json("not json"));
+}
+
+TEST_F(FincosysBridgeTest, ImportDocumentWithoutAtomsOrLinksReturnsZero)
+{
+    const gchar* json =
+        R"JSON({"schema":"fincosys-ecosystem-sync/v1","source":"gnucashm"})JSON";
+    EXPECT_EQ(0, gnc_cognitive_import_fincosys_json(json));
+}
+
+TEST_F(FincosysBridgeTest, ImportCreatesConceptNodeWithTruthValue)
+{
+    const gchar* json = R"JSON(
+    {
+      "schema": "fincosys-ecosystem-sync/v1",
+      "source": "fincosys-atomspace-builder",
+      "atoms": [
+        {"id": "9001", "atom_type": "ConceptNode", "label": "RST:Bank",
+         "truth_value": {"strength": 0.8, "confidence": 0.5}}
+      ],
+      "links": []
+    }
+    )JSON";
+
+    EXPECT_EQ(1, gnc_cognitive_import_fincosys_json(json));
+
+    gchar* exported = gnc_cognitive_export_fincosys_json();
+    ASSERT_NE(nullptr, exported);
+    std::string text(exported);
+    EXPECT_NE(std::string::npos, text.find("\"label\": \"RST:Bank\""));
+    EXPECT_NE(std::string::npos, text.find("\"strength\": 0.8"));
+    EXPECT_NE(std::string::npos, text.find("\"confidence\": 0.5"));
+    g_free(exported);
+}
+
+TEST_F(FincosysBridgeTest, ImportSkipsUnsupportedAtomType)
+{
+    const gchar* json = R"JSON(
+    {"atoms": [{"id": "1", "atom_type": "SchemaNode", "label": "x"}]}
+    )JSON";
+
+    EXPECT_EQ(0, gnc_cognitive_import_fincosys_json(json));
+}
+
+TEST_F(FincosysBridgeTest, ImportReconstructsInheritanceLink)
+{
+    const gchar* json = R"JSON(
+    {
+      "atoms": [
+        {"id": "1", "atom_type": "ConceptNode", "label": "Bank"},
+        {"id": "2", "atom_type": "ConceptNode", "label": "Asset"}
+      ],
+      "links": [
+        {"id": "3", "link_type": "InheritanceLink", "atoms": ["1", "2"],
+         "roles": {"1": "child", "2": "parent"}}
+      ]
+    }
+    )JSON";
+
+    /* 2 atoms + 1 link. */
+    EXPECT_EQ(3, gnc_cognitive_import_fincosys_json(json));
+
+    gchar* exported = gnc_cognitive_export_fincosys_json();
+    ASSERT_NE(nullptr, exported);
+    std::string text(exported);
+    EXPECT_NE(std::string::npos, text.find("\"link_type\": \"InheritanceLink\""));
+    g_free(exported);
+}
+
+TEST_F(FincosysBridgeTest, ImportSkipsLinkWithUnresolvedParticipant)
+{
+    const gchar* json = R"JSON(
+    {
+      "atoms": [
+        {"id": "1", "atom_type": "ConceptNode", "label": "Bank"}
+      ],
+      "links": [
+        {"id": "3", "link_type": "InheritanceLink", "atoms": ["1", "999"],
+         "roles": {"1": "child", "999": "parent"}}
+      ]
+    }
+    )JSON";
+
+    /* Only the 1 atom imports; the link references an id ("999") that was
+     * never in "atoms", so it can't be reconstructed. */
+    EXPECT_EQ(1, gnc_cognitive_import_fincosys_json(json));
+}
+
+TEST_F(FincosysBridgeTest, ImportRoundTripPreservesExportedGraph)
+{
+    GncAtomHandle predicate = gnc_atomspace_create_predicate_node("HasBalance");
+    GncAtomHandle account = gnc_atomspace_create_concept_node("Bank");
+    gnc_atomspace_create_evaluation_link(predicate, account, 0.9);
+
+    gchar* json = gnc_cognitive_export_fincosys_json();
+    ASSERT_NE(nullptr, json);
+
+    gnc_cognitive_accounting_shutdown();
+    gnc_cognitive_accounting_init();
+
+    gint imported = gnc_cognitive_import_fincosys_json(json);
+    EXPECT_EQ(3, imported); /* predicate + account atoms, 1 evaluation link */
+
+    gchar* reexported = gnc_cognitive_export_fincosys_json();
+    ASSERT_NE(nullptr, reexported);
+    std::string text(reexported);
+    EXPECT_NE(std::string::npos, text.find("\"label\": \"HasBalance\""));
+    EXPECT_NE(std::string::npos, text.find("\"label\": \"Bank\""));
+    EXPECT_NE(std::string::npos, text.find("\"link_type\": \"EvaluationLink\""));
+
+    g_free(json);
+    g_free(reexported);
+}
