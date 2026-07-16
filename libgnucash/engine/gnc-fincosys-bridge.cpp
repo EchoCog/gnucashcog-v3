@@ -609,6 +609,22 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
 {
     g_return_val_if_fail (json != nullptr, -1);
 
+    /* gnc_atomspace_foreach_atom() returns FALSE precisely when the
+     * cognitive AtomSpace hasn't been initialized (see
+     * gnc_cognitive_accounting_init()) -- probe it the same way the export
+     * side does before creating anything. Without this check, every
+     * creation call below would silently return handle 0 (per their doc
+     * comments) and still get counted as imported, so a caller could see a
+     * positive count with no real graph behind it. */
+    if (!gnc_atomspace_foreach_atom (
+            [](GncAtomHandle, GncAtomType, const char *, gdouble, gdouble, gpointer) {},
+            nullptr))
+    {
+        g_warning ("gnc_cognitive_import_fincosys_json: cognitive AtomSpace "
+                   "not initialized");
+        return -1;
+    }
+
     JsonValue root;
     JsonParser parser (json);
     if (!parser.parse (root) || !root.is_object ())
@@ -658,6 +674,17 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
                 continue;
             }
 
+            if (handle == 0)
+            {
+                /* Creation functions return handle 0 on failure (e.g. the
+                 * AtomSpace vanished mid-import) -- don't record a bogus
+                 * mapping or count a node that was never materialized. */
+                g_warning ("gnc_cognitive_import_fincosys_json: failed to "
+                           "create %s for id '%s', skipping",
+                           atom_type.c_str (), doc_id.c_str ());
+                continue;
+            }
+
             const JsonValue *tv = atom_val.find ("truth_value");
             gdouble strength = tv ? tv->get_number ("strength", 1.0) : 1.0;
             gdouble confidence = tv ? tv->get_number ("confidence", 1.0) : 1.0;
@@ -689,7 +716,13 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
              * kind -- matching roles_for_link_type() on the export side.
              * Falls back to positional_a/positional_b when "roles" doesn't
              * resolve the role, so links still import against a producer
-             * that omits "roles" entirely. */
+             * that omits "roles" entirely. The positional fallback order
+             * itself is link-kind-specific: the export side emits
+             * "atoms": [child, parent] for InheritanceLink but
+             * [parent, child] for HierarchyLink (see derive_link_type() /
+             * roles_for_link_type() above) -- using the same fallback order
+             * for both would silently swap HierarchyLink's endpoints
+             * whenever "roles" is absent. */
             std::string child_id, parent_id, predicate_id, account_id;
             std::string doc_id_a, doc_id_b;
             if (link_type == "EvaluationLink")
@@ -699,8 +732,15 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
                 doc_id_a = predicate_id;
                 doc_id_b = account_id;
             }
-            else /* InheritanceLink and HierarchyLink both resolve to a
-                  * child/parent pair -- only the creation function differs
+            else if (link_type == "HierarchyLink")
+            {
+                parent_id = find_id_with_role (roles, "parent", positional_a);
+                child_id = find_id_with_role (roles, "child", positional_b);
+                doc_id_a = child_id;
+                doc_id_b = parent_id;
+            }
+            else /* InheritanceLink (and any other link type defaulting to
+                  * this pairing) -- only the creation function differs
                   * below (child-first vs parent-first argument order). */
             {
                 child_id = find_id_with_role (roles, "child", positional_a);
@@ -736,6 +776,15 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
                  * OrLink, etc. */
                 g_warning ("gnc_cognitive_import_fincosys_json: unsupported "
                            "link_type '%s', skipping", link_type.c_str ());
+                continue;
+            }
+
+            if (handle == 0)
+            {
+                /* Link-creation functions return handle 0 on failure --
+                 * don't count a link that was never materialized. */
+                g_warning ("gnc_cognitive_import_fincosys_json: failed to "
+                           "create %s, skipping", link_type.c_str ());
                 continue;
             }
 
