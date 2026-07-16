@@ -12,7 +12,6 @@
 #include <thread>
 #include <chrono>
 #include <glib.h>
-#include <json-glib/json-glib.h>
 #include "gnc-cognitive-api.h"
 #include "gnc-cognitive-graphql.h"
 #include "gnc-cognitive-accounting.h"

@@ -18,6 +18,7 @@
  * @brief Phase 1: Implementation of Cognitive Primitives & Foundational Hypergraph Encoding
  */
 
+#include <atomic>
 #include <iostream>
 #include <cmath>
 #include <cstdlib>
@@ -32,8 +33,10 @@ static gboolean primitives_initialized = FALSE;
 static GHashTable *primitive_registry = NULL;
 static GHashTable *hypergraph_registry = NULL;
 static GHashTable *agent_registry = NULL;
-static guint64 next_primitive_id = 1;
-static guint64 next_hypergraph_node_id = 1;
+/* std::atomic rather than g_atomic_int_add(), which only operates on
+ * 4-byte gint -- these counters are guint64. */
+static std::atomic<guint64> next_primitive_id{1};
+static std::atomic<guint64> next_hypergraph_node_id{1};
 static GMutex primitive_mutex;
 
 /** Forward declarations for internal functions */
@@ -571,7 +574,7 @@ GncNeuralSymbolicEmbedding* gnc_neural_symbolic_embedding_create(
     embedding->concept_id = concept_id;
     embedding->vector_dimension = vector_dimension;
     embedding->embedding_vector = g_new(gdouble, vector_dimension);
-    embedding->symbolic_representation = g_strdup_printf("concept_%lu", concept_id);
+    embedding->symbolic_representation = g_strdup_printf("concept_%" G_GUINT64_FORMAT, concept_id);
     embedding->embedding_confidence = 0.5;
     
     // Initialize with random values (simple initialization)
@@ -803,12 +806,12 @@ static void cleanup_primitive_registry(void)
 
 static GncCognitivePrimitive generate_primitive_id(void)
 {
-    return g_atomic_int_add(&next_primitive_id, 1);
+    return next_primitive_id.fetch_add(1);
 }
 
 static GncHypergraphNode generate_hypergraph_node_id(void)
 {
-    return g_atomic_int_add(&next_hypergraph_node_id, 1);
+    return next_hypergraph_node_id.fetch_add(1);
 }
 
 static void update_system_coherence(void)
