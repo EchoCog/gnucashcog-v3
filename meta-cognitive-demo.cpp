@@ -21,17 +21,17 @@
 #include <thread>
 #include <chrono>
 
-void print_banner(const char* title) {
+static void print_banner(const char* title) {
     std::cout << "\n" << std::string(80, '=') << "\n";
     std::cout << "  " << title << "\n";
     std::cout << std::string(80, '=') << "\n";
 }
 
-void print_section(const char* title) {
+static void print_section(const char* title) {
     std::cout << "\n--- " << title << " ---\n";
 }
 
-void print_metrics(const GncCognitiveMetrics& metrics, const char* label) {
+static void print_metrics(const GncCognitiveMetrics& metrics, const char* label) {
     std::cout << std::fixed << std::setprecision(3);
     std::cout << label << ":\n";
     std::cout << "  • Accuracy: " << metrics.accuracy << "\n";
@@ -47,7 +47,7 @@ void print_metrics(const GncCognitiveMetrics& metrics, const char* label) {
     std::cout << "  • Error Count: " << metrics.error_count << "\n";
 }
 
-void print_config(const GncCognitiveArchConfig& config, const char* label) {
+static void print_config(const GncCognitiveArchConfig& config, const char* label) {
     std::cout << std::fixed << std::setprecision(3);
     std::cout << label << ":\n";
     std::cout << "  • Base Learning Rate: " << config.base_learning_rate << "\n";
@@ -62,7 +62,7 @@ void print_config(const GncCognitiveArchConfig& config, const char* label) {
     std::cout << "  • Max Concurrent Ops: " << config.max_concurrent_ops << "\n";
 }
 
-void simulate_cognitive_workload() {
+static void simulate_cognitive_workload() {
     std::cout << "Simulating cognitive workload...\n";
     
     // Simulate some computational work with varying performance
@@ -101,7 +101,7 @@ void simulate_cognitive_workload() {
     std::cout << " done!\n";
 }
 
-void demonstrate_self_analysis(GncMetaCognitiveSession* session) {
+static void demonstrate_self_analysis(GncMetaCognitiveSession* session) {
     print_section("Self-Analysis Demonstration");
     
     std::cout << "Analyzing individual cognitive processes:\n\n";
@@ -165,7 +165,7 @@ void demonstrate_self_analysis(GncMetaCognitiveSession* session) {
     }
 }
 
-void demonstrate_evolutionary_optimization(GncMetaCognitiveSession* session) {
+static void demonstrate_evolutionary_optimization(GncMetaCognitiveSession* session) {
     print_section("Evolutionary Optimization Demonstration");
     
     std::cout << "Configuring evolutionary parameters:\n";
@@ -209,7 +209,7 @@ void demonstrate_evolutionary_optimization(GncMetaCognitiveSession* session) {
     }
 }
 
-void demonstrate_safety_mechanisms() {
+static void demonstrate_safety_mechanisms() {
     print_section("Safety Mechanisms Demonstration");
     
     std::cout << "Testing safety bounds:\n";
@@ -286,7 +286,7 @@ void demonstrate_safety_mechanisms() {
     }
 }
 
-void demonstrate_recursive_improvement(GncMetaCognitiveSession* session) {
+static void demonstrate_recursive_improvement(GncMetaCognitiveSession* session) {
     print_section("Recursive Self-Improvement Demonstration");
     
     std::cout << "Starting recursive improvement cycle:\n";
@@ -324,7 +324,7 @@ void demonstrate_recursive_improvement(GncMetaCognitiveSession* session) {
     }
 }
 
-void demonstrate_introspection(GncMetaCognitiveSession* session) {
+static void demonstrate_introspection(GncMetaCognitiveSession* session) {
     print_section("Introspection & Pattern Analysis");
     
     std::cout << "Analyzing cognitive behavioral patterns:\n";
@@ -349,7 +349,7 @@ void demonstrate_introspection(GncMetaCognitiveSession* session) {
     
     std::cout << "\nGenerating fitness landscape visualization:\n";
     gchar* landscape = gnc_meta_cognitive_generate_fitness_landscape(
-        session, GNC_METACOG_PROCESS_AI);
+        session, GNC_METACOG_PROCESS_ALL);
     
     if (landscape) {
         std::cout << "Fitness landscape data (JSON):\n";
@@ -358,7 +358,7 @@ void demonstrate_introspection(GncMetaCognitiveSession* session) {
     }
 }
 
-void demonstrate_performance_monitoring() {
+static void demonstrate_performance_monitoring() {
     print_section("Performance Monitoring Dashboard");
     
     std::cout << "Current system-wide performance metrics:\n\n";

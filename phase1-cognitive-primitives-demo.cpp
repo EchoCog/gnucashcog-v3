@@ -43,7 +43,7 @@ int main()
     
     // Initialize systems
     qof_init();
-    gnc_engine_init_static();
+    gnc_engine_init_static(0, nullptr);
     
     if (!gnc_cognitive_primitives_init()) {
         std::cerr << "❌ Failed to initialize cognitive primitives system\n";
