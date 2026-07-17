@@ -334,6 +334,42 @@ private:
     }
 };
 
+/*
+ * Generic string-valued attribute store for atoms, keyed by GncAtomHandle.
+ * This is local to the bridge (not part of the cognitive AtomSpace engine
+ * itself, which has no such storage) -- it exists purely so that
+ * gnc_cognitive_import_fincosys_json() can retain a node atom's imported
+ * "attributes" object (e.g. "evidence_refs"/"legal_categories" -- the
+ * revstream1/ad-res-j7 case-evidence provenance fields, see fincosys-
+ * atomspace-builder's CaseEvidenceEnricher) and gnc_cognitive_export_
+ * fincosys_json() can round-trip it back out within the same process,
+ * rather than silently discarding attributes on every sync.
+ */
+std::map<GncAtomHandle, std::map<std::string, std::string>> g_atom_attributes;
+
+/* Renders a JSON value that is either a plain string, or an array of
+ * strings, as a single comma-separated string -- the same flattening
+ * convention gnucashm's gnc-fincosys-sync.cpp uses to round-trip
+ * evidence_refs/legal_categories through a plain-text field. */
+std::string
+flatten_attribute_value (const JsonValue &val)
+{
+    if (val.is_array ())
+    {
+        std::ostringstream out;
+        bool first = true;
+        for (const JsonValue &item : val.items ())
+        {
+            if (!first)
+                out << ",";
+            first = false;
+            out << item.as_string ();
+        }
+        return out.str ();
+    }
+    return val.as_string ();
+}
+
 struct AtomRecord
 {
     GncAtomHandle handle;
@@ -530,6 +566,21 @@ gnc_cognitive_export_fincosys_json(void)
         out << "      \"id\": " << json_quote(std::to_string(rec.handle)) << ",\n";
         out << "      \"atom_type\": " << json_quote(atom_type_name(rec.type)) << ",\n";
         out << "      \"label\": " << json_quote(rec.name) << ",\n";
+
+        auto attrs_it = g_atom_attributes.find(rec.handle);
+        if (attrs_it != g_atom_attributes.end() && !attrs_it->second.empty())
+        {
+            out << "      \"attributes\": {";
+            bool first_attr = true;
+            for (const auto &kv : attrs_it->second)
+            {
+                out << (first_attr ? "\n" : ",\n");
+                first_attr = false;
+                out << "        " << json_quote(kv.first) << ": " << json_quote(kv.second);
+            }
+            out << "\n      },\n";
+        }
+
         out << "      \"truth_value\": {\"strength\": " << rec.strength
             << ", \"confidence\": " << rec.confidence << "}\n";
         out << "    }";
@@ -689,6 +740,13 @@ gnc_cognitive_import_fincosys_json (const gchar *json)
             gdouble strength = tv ? tv->get_number ("strength", 1.0) : 1.0;
             gdouble confidence = tv ? tv->get_number ("confidence", 1.0) : 1.0;
             gnc_atomspace_set_truth_value (handle, strength, confidence);
+
+            const JsonValue *attrs = atom_val.find ("attributes");
+            if (attrs != nullptr && attrs->is_object ())
+            {
+                for (const auto &kv : attrs->object_items ())
+                    g_atom_attributes[handle][kv.first] = flatten_attribute_value (kv.second);
+            }
 
             handle_by_doc_id[doc_id] = handle;
             ++count;

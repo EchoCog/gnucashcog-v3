@@ -50,6 +50,16 @@ extern "C"
  *  the simulated AtomSpace doesn't otherwise track link endpoints).
  *  Links whose participants can't be recovered are omitted.
  *
+ *  A node-type atom's \c "attributes" object, if any generic key/value
+ *  attributes were recorded for it via gnc_cognitive_import_fincosys_json()
+ *  (e.g. \c "evidence_refs" / \c "legal_categories" -- the revstream1/
+ *  ad-res-j7 case-evidence provenance fields, see fincosys-atomspace-
+ *  builder's \c CaseEvidenceEnricher), is included in the export so a
+ *  round-trip through this bridge doesn't silently drop them. This
+ *  attribute store is local to this bridge (a handle-keyed side table, not
+ *  part of the cognitive AtomSpace engine itself), so it only reflects
+ *  attributes previously set via an import in the same process.
+ *
  *  @return Newly allocated JSON string (caller frees with g_free()), or
  *          NULL if the cognitive AtomSpace has not been initialized
  *          (see gnc_cognitive_accounting_init()).
@@ -81,7 +91,12 @@ gchar *gnc_cognitive_export_fincosys_json (void);
  *
  *  Each imported atom's truth value is applied via
  *  gnc_atomspace_set_truth_value() from the document's \c "truth_value"
- *  object, defaulting to (1.0, 1.0) when absent.
+ *  object, defaulting to (1.0, 1.0) when absent. A node-type atom's
+ *  \c "attributes" object, if present, is recorded in this bridge's
+ *  handle-keyed attribute side table (array-valued entries such as
+ *  \c "evidence_refs" are flattened to a comma-separated string), so a
+ *  subsequent gnc_cognitive_export_fincosys_json() call in the same
+ *  process round-trips them back out.
  *
  *  @param json The JSON document text.
  *  @return The number of atoms plus links imported, or -1 if @a json
