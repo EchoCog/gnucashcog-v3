@@ -57,6 +57,8 @@ set (engine_HEADERS
   gnc-cognitive-accounting.h
   gnc-cognitive-primitives.h
   gnc-cognitive-scheme.h
+  gnc-ko6ml-translation.h
+  gnc-ko6ml-atomspace.h
   gnc-cognitive-comms.h
   gnc-tensor-network.h
   gnc-meta-cognitive.h
@@ -172,6 +174,8 @@ set (engine_SOURCES
   gnc-cognitive-accounting.cpp
   gnc-cognitive-primitives.cpp
   gnc-cognitive-scheme.cpp
+  gnc-ko6ml-translation.cpp
+  gnc-ko6ml-atomspace.cpp
   gnc-cognitive-comms.cpp
   gnc-tensor-network.cpp
   gnc-meta-cognitive.cpp

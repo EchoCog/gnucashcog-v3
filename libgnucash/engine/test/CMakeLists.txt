@@ -214,6 +214,10 @@ gnc_add_test(test-cognitive-accounting test-cognitive-accounting.cpp
 gnc_add_test(test-cognitive-primitives test-cognitive-primitives.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Phase 1: ko6ml <-> AtomSpace hypergraph translation test
+gnc_add_test(test-ko6ml-translation test-ko6ml-translation.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 # Tensor network test
 gnc_add_test(test-tensor-network test-tensor-network.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
@@ -251,6 +255,7 @@ set(test_engine_SOURCES_DIST
         test-business.c
         test-cognitive-accounting.cpp
         test-cognitive-primitives.cpp
+        test-ko6ml-translation.cpp
         test-tensor-network.cpp
         test-meta-cognitive.cpp
         test-ontogenesis-bridge.cpp
