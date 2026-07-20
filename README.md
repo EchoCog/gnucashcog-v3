@@ -86,6 +86,7 @@ graph TD
 
 ### 📋 **Core Documentation**
 - 🧠 **[Cognitive Accounting Framework](COGNITIVE_ACCOUNTING.md)** - Neural-symbolic accounting system
+- 🧬 **[Phase 1: ko6ml ↔ AtomSpace Translation](PHASE1_KO6ML_TRANSLATION.md)** - Cognitive primitives & hypergraph encoding
 - 🕸️ **[Tensor Network Architecture](TENSOR_NETWORK_ARCHITECTURE.md)** - Distributed cognitive nodes
 - 📊 **[Implementation Report](IMPLEMENTATION_REPORT.md)** - Technical implementation details
 
