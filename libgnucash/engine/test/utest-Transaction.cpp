@@ -70,14 +70,14 @@ typedef struct
     gnc_commodity *comm;
     TransTestFunctions *func;
     GSList *hdlrs;
-} Fixture;
+} TransactionFixture;
 
 typedef struct
 {
-    Fixture base;
+    TransactionFixture base;
     Transaction *gains_txn;
     Account *gains_acc;
-} GainsFixture;
+} TransactionGainsFixture;
 
 class TransMockBackend : public QofBackend
 {
@@ -112,7 +112,7 @@ private:
 };
 
 static void
-setup (Fixture *fixture, gconstpointer pData)
+setup (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_book_new ();
     TransMockBackend *mbe = new TransMockBackend;
@@ -166,10 +166,10 @@ setup (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-setup_with_gains (GainsFixture *fixture, gconstpointer pData)
+setup_with_gains (TransactionGainsFixture *fixture, gconstpointer pData)
 {
     QofBook *book;
-    Fixture *base = &(fixture->base);
+    TransactionFixture *base = &(fixture->base);
 
     setup (base, NULL);
 
@@ -201,7 +201,7 @@ setup_with_gains (GainsFixture *fixture, gconstpointer pData)
 
 
 static void
-teardown (Fixture *fixture, gconstpointer pData)
+teardown (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto mbe = static_cast<TransMockBackend*>(qof_book_get_backend (book));
@@ -218,9 +218,9 @@ teardown (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-teardown_with_gains (GainsFixture *fixture, gconstpointer pData)
+teardown_with_gains (TransactionGainsFixture *fixture, gconstpointer pData)
 {
-    Fixture *base = &(fixture->base);
+    TransactionFixture *base = &(fixture->base);
     test_destroy (fixture->gains_acc);
     teardown (base, NULL);
 }
@@ -229,7 +229,7 @@ teardown_with_gains (GainsFixture *fixture, gconstpointer pData)
 void check_open (const Transaction *trans)// Local: 1:0:0
 */
 static void
-test_check_open (Fixture *fixture, gconstpointer pData)
+test_check_open (TransactionFixture *fixture, gconstpointer pData)
 {
     auto msg = g_strdup_printf ("[check_open()] transaction %p not open for editing", fixture->txn);
     auto loglevel = static_cast<GLogLevelFlags>(G_LOG_LEVEL_CRITICAL |
@@ -251,7 +251,7 @@ gboolean
 xaccTransStillHasSplit(const Transaction *trans, const Split *s)// C: 8 in 3  Local: 7:0:0
 */
 static void
-test_xaccTransStillHasSplit (Fixture *fixture, gconstpointer pData)
+test_xaccTransStillHasSplit (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto split = xaccMallocSplit (book);
@@ -284,7 +284,7 @@ void mark_trans (Transaction *trans)// Local: 3:0:0
 }
 
 static void
-test_mark_trans (Fixture *fixture, gconstpointer pData)
+test_mark_trans (TransactionFixture *fixture, gconstpointer pData)
 {
     GList *splits = NULL;
 
@@ -307,7 +307,7 @@ test_mark_trans (Fixture *fixture, gconstpointer pData)
 void gen_event_trans (Transaction *trans)// Local: 2:0:0
 */
 static void
-test_gen_event_trans (Fixture *fixture, gconstpointer pData)
+test_gen_event_trans (TransactionFixture *fixture, gconstpointer pData)
 {
     auto split = static_cast<Split*>(fixture->txn->splits->data);
     GNCLot *lot = gnc_lot_new (qof_instance_get_book (QOF_INSTANCE (fixture->txn)));
@@ -397,7 +397,7 @@ test_gnc_transaction_finalize ()
 static void
 gnc_transaction_set_property(GObject* object,*/
 static void
-test_gnc_transaction_set_get_property (Fixture *fixture, gconstpointer pData)
+test_gnc_transaction_set_get_property (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_book_new ();
     auto txn = static_cast<Transaction*>(g_object_new (GNC_TYPE_TRANSACTION, "book", book, NULL));
@@ -451,7 +451,7 @@ test_gnc_transaction_set_get_property (Fixture *fixture, gconstpointer pData)
 No way to really test class_init directly -- though the above tests cover everything pretty well indirectly. xaccInitTransaction is a useless one-line function that sets the book in the parent QofInstance.
  */
 static void
-test_xaccMallocTransaction (Fixture *fixture, gconstpointer pData)
+test_xaccMallocTransaction (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_book_new ();
     TestSignal sig1 = test_signal_new (NULL, QOF_EVENT_CREATE,NULL);
@@ -487,7 +487,7 @@ void
 xaccTransSortSplits (Transaction *trans)// Local: 1:0:0
 */
 static void
-test_xaccTransSortSplits (Fixture *fixture, gconstpointer pData)
+test_xaccTransSortSplits (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (txn));
@@ -542,7 +542,7 @@ static Transaction *
 dupe_trans (const Transaction *from)// Local: 1:0:0
 */
 static void
-test_dupe_trans (Fixture *fixture, gconstpointer pData)
+test_dupe_trans (TransactionFixture *fixture, gconstpointer pData)
 {
     time64 posted = gnc_dmy2time64 (12, 7, 2011);
     time64 entered = gnc_dmy2time64 (14, 7, 2011);
@@ -588,7 +588,7 @@ Transaction *
 xaccTransClone (const Transaction *from)// C: 1  Local: 1:0:0
 */
 static void
-test_xaccTransClone (Fixture *fixture, gconstpointer pData)
+test_xaccTransClone (TransactionFixture *fixture, gconstpointer pData)
 {
     time64 posted = gnc_dmy2time64 (12, 7, 2011);
     time64 entered = gnc_dmy2time64 (14, 7, 2011);
@@ -648,7 +648,7 @@ xaccTransCopyFromClipboard (const Transaction *from_trans,
 			    Account *to_acc, gboolean no_date) // Register 2
 */
 static void
-test_xaccTransCopyFromClipBoard (Fixture *fixture, gconstpointer pData)
+test_xaccTransCopyFromClipBoard (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (txn));
@@ -673,7 +673,7 @@ test_xaccTransCopyFromClipBoard (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-test_xaccTransCopyFromClipBoard_no_start (Fixture *fixture, gconstpointer pData)
+test_xaccTransCopyFromClipBoard_no_start (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (txn));
@@ -703,7 +703,7 @@ static void
 xaccFreeTransaction (Transaction *trans)// Local: 4:0:0
 */
 static void
-test_xaccFreeTransaction (Fixture *fixture, gconstpointer pData)
+test_xaccFreeTransaction (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     Transaction *orig = xaccMallocTransaction (qof_instance_get_book (QOF_INSTANCE (txn)));
@@ -744,7 +744,7 @@ xaccTransEqual(const Transaction *ta, const Transaction *tb,// C: 2 in 2  Local:
 */
 #define DATE_BUF_SIZE 100
 static void
-test_xaccTransEqual (Fixture *fixture, gconstpointer pData)
+test_xaccTransEqual (TransactionFixture *fixture, gconstpointer pData)
 {
 
     QofBook *book2 = qof_book_new ();
@@ -949,7 +949,7 @@ Transaction *
 xaccTransLookup (const GncGUID *guid, QofBook *book)// C: 22 in 7  Local: 1:0:0
 */
 static void
-test_xaccTransLookup (Fixture *fixture, gconstpointer pData)
+test_xaccTransLookup (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     QofInstance *inst = QOF_INSTANCE (txn);
@@ -961,7 +961,7 @@ gnc_numeric
 xaccTransGetImbalanceValue (const Transaction * trans)// C: 11 in 5  Local: 1:1:0
 */
 static void
-test_xaccTransGetImbalanceValue (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetImbalanceValue (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto split1 = xaccMallocSplit (book);
@@ -984,7 +984,7 @@ MonetaryList *
 xaccTransGetImbalance (const Transaction * trans)// C: 15 in 6  Local: 1:0:0
 */
 static void
-test_xaccTransGetImbalance (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetImbalance (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto split1 = xaccMallocSplit (book);
@@ -1007,7 +1007,7 @@ test_xaccTransGetImbalance (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-test_xaccTransGetImbalance_trading (Fixture *fixture,
+test_xaccTransGetImbalance_trading (TransactionFixture *fixture,
                                     gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
@@ -1075,7 +1075,7 @@ gboolean
 xaccTransIsBalanced (const Transaction *trans)// C: 4 in 4  Local: 1:0:0
 */
 static void
-test_xaccTransIsBalanced (Fixture *fixture, gconstpointer pData)
+test_xaccTransIsBalanced (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto split1 = xaccMallocSplit (book);
@@ -1095,7 +1095,7 @@ test_xaccTransIsBalanced (Fixture *fixture, gconstpointer pData)
 
 
 static void
-test_xaccTransIsBalanced_trading (Fixture *fixture, gconstpointer pData)
+test_xaccTransIsBalanced_trading (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto split1 = xaccMallocSplit (book);
@@ -1146,7 +1146,7 @@ gnc_numeric
 xaccTransGetAccountValue (const Transaction *trans,// SCM: 6 in 6 Local: 0:0:0
 */
 static void
-test_xaccTransGetAccountValue (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetAccountValue (TransactionFixture *fixture, gconstpointer pData)
 {
     gnc_numeric val1 = {3200, 240}, val2 = {-3200, 240};
 
@@ -1161,7 +1161,7 @@ gnc_numeric
 xaccTransGetAccountAmount (const Transaction *trans, const Account *acc)// C: 2 in 1  Local: 0:0:0
 */
 static void
-test_xaccTransGetAccountAmount (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetAccountAmount (TransactionFixture *fixture, gconstpointer pData)
 {
     gnc_numeric amt1 = {100000, 1000}, amt2 = {-3200, 240};
 
@@ -1177,7 +1177,7 @@ gnc_numeric
 xaccTransGetAccountConvRate(const Transaction *txn, const Account *acc)// C: 5 in 4  Local: 0:0:0
 */
 static void
-test_xaccTransGetAccountConvRate (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetAccountConvRate (TransactionFixture *fixture, gconstpointer pData)
 {
     auto msg1 = "[xaccTransGetAccountConvRate()] How can amount be nonzero and value be zero?";
     auto loglevel = static_cast<GLogLevelFlags>(G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL);
@@ -1206,7 +1206,7 @@ gnc_numeric
 xaccTransGetAccountBalance (const Transaction *trans,// C: 1  Local: 0:0:0
 */
 static void
-test_xaccTransGetAccountBalance (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetAccountBalance (TransactionFixture *fixture, gconstpointer pData)
 {
 #ifdef USE_CLANG_FUNC_SIG
 #define _func "gnc_numeric xaccTransGetAccountBalance(const Transaction *, const Account *)"
@@ -1249,7 +1249,7 @@ void
 xaccTransSetCurrency (Transaction *trans, gnc_commodity *curr)// C: 22 in 18 SCM: 3 in 3 Local: 1:0:0
 */
 static void
-test_xaccTransSetCurrency (Fixture *fixture, gconstpointer pData)
+test_xaccTransSetCurrency (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     gnc_commodity *curr = gnc_commodity_new (book, "Japanese Yen", "CURRENCY", "JPY", "¥", 1);
@@ -1327,7 +1327,7 @@ void
 xaccTransDestroy (Transaction *trans)// C: 26 in 15 SCM: 4 in 4 Local: 3:0:0
 */
 static void
-test_xaccTransDestroy (Fixture *fixture, gconstpointer pData)
+test_xaccTransDestroy (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (txn));
@@ -1354,12 +1354,12 @@ static void
 destroy_gains (Transaction *trans)// Local: 1:0:0 -- from do_destroy
 */
 static void
-test_destroy_gains (GainsFixture *fixture, gconstpointer pData)
+test_destroy_gains (TransactionGainsFixture *fixture, gconstpointer pData)
 {
     /* Don't try to test with a NULL transaction, this is an internal
      * function that isn't protected.
      */
-    Fixture *base = &(fixture->base);
+    TransactionFixture *base = &(fixture->base);
     auto base_split = static_cast<Split*>(g_list_nth_data (base->txn->splits, 1));
     xaccTransBeginEdit (fixture->gains_txn); /* Protect it from being actually destroyed */
     base->func->destroy_gains (base->txn);
@@ -1374,9 +1374,9 @@ do_destroy (Transaction *trans)// Local: 1:1:0 callback passed to qof_commit_edi
 NB: This function has a weird three-step process for destroying and freeing the splits, which isn't really testable.
 */
 static void
-test_do_destroy (GainsFixture *fixture, gconstpointer pData)
+test_do_destroy (TransactionGainsFixture *fixture, gconstpointer pData)
 {
-    Fixture *base = &(fixture->base);
+    TransactionFixture *base = &(fixture->base);
     auto base_split =  static_cast<Split*>(g_list_nth_data (base->txn->splits, 1));
     TestSignal sig = test_signal_new (QOF_INSTANCE (base->txn),
                                       QOF_EVENT_DESTROY, NULL);
@@ -1405,7 +1405,7 @@ test_do_destroy (GainsFixture *fixture, gconstpointer pData)
 static gboolean was_trans_emptied(Transaction *trans)// Local: 1:0:0 xaccTransCommitEdit
 */
 static void
-test_was_trans_emptied (Fixture *fixture, gconstpointer pData)
+test_was_trans_emptied (TransactionFixture *fixture, gconstpointer pData)
 {
     GList *list = fixture->txn->splits;
     g_assert_true (!fixture->func->was_trans_emptied (fixture->txn));
@@ -1426,7 +1426,7 @@ commit_error_cb (gpointer data, QofBackendError errcode)
 }
 
 static void
-test_trans_on_error (Fixture *fixture, gconstpointer pData)
+test_trans_on_error (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBackendError errcode = ERR_BACKEND_MODIFIED;
     auto msg =
@@ -1451,7 +1451,7 @@ test_trans_on_error (Fixture *fixture, gconstpointer pData)
 static void trans_cleanup_commit(Transaction *trans)// Local: 0:1:0 callback for qof_commit_edit_part2, xaccTransCommitEdit
 */
 static void
-test_trans_cleanup_commit (Fixture *fixture, gconstpointer pData)
+test_trans_cleanup_commit (TransactionFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_instance_get_book (QOF_INSTANCE (fixture->txn));
     auto destr_split = xaccMallocSplit (book);
@@ -1605,7 +1605,7 @@ void
 xaccTransRollbackEdit (Transaction *trans)// C: 2 in 2  Local: 1:0:0
 */
 static void
-test_xaccTransRollbackEdit (Fixture *fixture, gconstpointer pData)
+test_xaccTransRollbackEdit (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->txn;
     Transaction *orig = NULL;
@@ -1677,7 +1677,7 @@ test_xaccTransRollbackEdit (Fixture *fixture, gconstpointer pData)
 }
 /* A second xaccTransRollbackEdit test to check the backend error handling */
 static void
-test_xaccTransRollbackEdit_BackendErrors (Fixture *fixture, gconstpointer pData)
+test_xaccTransRollbackEdit_BackendErrors (TransactionFixture *fixture, gconstpointer pData)
 {
     auto mbe = static_cast<TransMockBackend*>(qof_book_get_backend (qof_instance_get_book (fixture->txn)));
     auto loglevel = static_cast<GLogLevelFlags>(G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL);
@@ -1710,7 +1710,7 @@ xaccTransOrder_num_action (const Transaction *ta, const char *actna,
                            const Transaction *tb, const char *actnb)// C: 1 Local: 1:0:0
 */
 static void
-test_xaccTransOrder_num_action (Fixture *fixture, gconstpointer pData)
+test_xaccTransOrder_num_action (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *txnA = fixture->txn;
     Transaction *txnB = fixture->func->dupe_trans (txnA);
@@ -1742,7 +1742,7 @@ test_xaccTransOrder_num_action (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-test_xaccTransGetReadOnly (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetReadOnly (TransactionFixture *fixture, gconstpointer pData)
 {
     auto txn = fixture->txn;
     g_assert_cmpstr (xaccTransGetReadOnly (txn), ==, nullptr);
@@ -1797,7 +1797,7 @@ test_xaccTransGetReadOnly (Fixture *fixture, gconstpointer pData)
  * xaccTransRetDateDueTS C: 1 SCM: 2 in 2 Local: 0:1:0
  * xaccTransGetTxnType C: 3 in 2 SCM: 12 in 6 Local: 0:1:0*/
 static void
-test_xaccTransGetTxnType (Fixture *fixture, gconstpointer pData)
+test_xaccTransGetTxnType (TransactionFixture *fixture, gconstpointer pData)
 {
     // note this will only test TXN_TYPE_NONE, because TxnType is derived
     // from split data. Testing for TXN_TYPE_INVOICE TXN_TYPE_PAYMENT
@@ -1829,7 +1829,7 @@ xaccTransUnvoid (Transaction *trans)// C: 1  Local: 0:0:0
 */
 
 static void
-test_xaccTransSetDocLink (Fixture *fixture, gconstpointer pData)
+test_xaccTransSetDocLink (TransactionFixture *fixture, gconstpointer pData)
 {
     auto trans = fixture->txn;
 
@@ -1849,7 +1849,7 @@ test_xaccTransSetDocLink (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-test_xaccTransVoid (Fixture *fixture, gconstpointer pData)
+test_xaccTransVoid (TransactionFixture *fixture, gconstpointer pData)
 {
     /* Actual function variables start here. */
     auto frame = fixture->txn->inst.kvp_data;
@@ -1899,7 +1899,7 @@ Transaction *
 xaccTransReverse (Transaction *orig)// C: 2 in 2  Local: 0:0:0
 */
 static void
-test_xaccTransReverse (Fixture *fixture, gconstpointer pData)
+test_xaccTransReverse (TransactionFixture *fixture, gconstpointer pData)
 {
     Transaction *rev = xaccTransReverse (fixture->txn);
     auto frame = fixture->txn->inst.kvp_data;
@@ -1939,7 +1939,7 @@ static void
 xaccTransScrubGainsDate (Transaction *trans)// Local: 1:0:0
 */
 static void
-test_xaccTransScrubGainsDate_no_dirty (GainsFixture *fixture,
+test_xaccTransScrubGainsDate_no_dirty (TransactionGainsFixture *fixture,
                                        gconstpointer pData)
 {
     auto base_split = static_cast<Split *>(g_list_nth_data (fixture->base.txn->splits, 1));
@@ -1957,7 +1957,7 @@ test_xaccTransScrubGainsDate_no_dirty (GainsFixture *fixture,
 }
 
 static void
-test_xaccTransScrubGainsDate_base_dirty (GainsFixture *fixture,
+test_xaccTransScrubGainsDate_base_dirty (TransactionGainsFixture *fixture,
         gconstpointer pData)
 {
     auto base_split = static_cast<Split *>(g_list_nth_data (fixture->base.txn->splits, 1));
@@ -1975,7 +1975,7 @@ test_xaccTransScrubGainsDate_base_dirty (GainsFixture *fixture,
 }
 
 static void
-test_xaccTransScrubGainsDate_gains_dirty (GainsFixture *fixture,
+test_xaccTransScrubGainsDate_gains_dirty (TransactionGainsFixture *fixture,
         gconstpointer pData)
 {
     auto base_split = static_cast<Split*>(g_list_nth_data (fixture->base.txn->splits, 1));
@@ -2008,53 +2008,53 @@ test_xaccTransScrubGainsDate_gains_dirty (GainsFixture *fixture,
 void
 test_suite_transaction (void)
 {
-    GNC_TEST_ADD (suitename, "check open", Fixture, NULL, setup, test_check_open, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransStillHasSplit", Fixture, NULL, setup, test_xaccTransStillHasSplit, teardown);
-    GNC_TEST_ADD (suitename, "mark trans", Fixture, NULL, setup, test_mark_trans, teardown);
-    GNC_TEST_ADD (suitename, "gen event trans", Fixture, NULL, setup, test_gen_event_trans, teardown);
+    GNC_TEST_ADD (suitename, "check open", TransactionFixture, NULL, setup, test_check_open, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransStillHasSplit", TransactionFixture, NULL, setup, test_xaccTransStillHasSplit, teardown);
+    GNC_TEST_ADD (suitename, "mark trans", TransactionFixture, NULL, setup, test_mark_trans, teardown);
+    GNC_TEST_ADD (suitename, "gen event trans", TransactionFixture, NULL, setup, test_gen_event_trans, teardown);
     GNC_TEST_ADD_FUNC (suitename, "gnc transaction init", test_gnc_transaction_init);
     GNC_TEST_ADD_FUNC (suitename, "gnc transaction dispose", test_gnc_transaction_dispose);
     GNC_TEST_ADD_FUNC (suitename, "gnc transaction finalize", test_gnc_transaction_finalize);
-    GNC_TEST_ADD (suitename, "gnc transaction set/get property", Fixture, NULL, setup, test_gnc_transaction_set_get_property, teardown);
-    GNC_TEST_ADD (suitename, "xaccMallocTransaction", Fixture, NULL, setup, test_xaccMallocTransaction, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransSortSplits", Fixture, NULL, setup, test_xaccTransSortSplits, teardown);
-    GNC_TEST_ADD (suitename, "dupe_trans", Fixture, NULL, setup, test_dupe_trans, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransClone", Fixture, NULL, setup, test_xaccTransClone, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransCopyFromClipBoard", Fixture, NULL, setup, test_xaccTransCopyFromClipBoard, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransCopyFromClipBoard No-Start", Fixture, NULL, setup, test_xaccTransCopyFromClipBoard_no_start, teardown);
-    GNC_TEST_ADD (suitename, "xaccFreeTransaction", Fixture, NULL, setup, test_xaccFreeTransaction, teardown);
-// GNC_TEST_ADD (suitename, "compare split guids", Fixture, NULL, setup, test_compare_split_guids, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransEqual", Fixture, NULL, setup, test_xaccTransEqual, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransLookup", Fixture, NULL, setup, test_xaccTransLookup, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetImbalanceValue", Fixture, NULL, setup, test_xaccTransGetImbalanceValue, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetImbalance", Fixture, NULL, setup, test_xaccTransGetImbalance, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetImbalance Trading Accounts", Fixture, NULL, setup, test_xaccTransGetImbalance_trading, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransIsBalanced", Fixture, NULL, setup, test_xaccTransIsBalanced, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransIsBalanced Trading Accounts", Fixture, NULL, setup, test_xaccTransIsBalanced_trading, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetAccountValue", Fixture, NULL, setup, test_xaccTransGetAccountValue, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetAccountAmount", Fixture, NULL, setup, test_xaccTransGetAccountAmount, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetAccountConvRate", Fixture, NULL, setup, test_xaccTransGetAccountConvRate, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetAccountBalance", Fixture, NULL, setup, test_xaccTransGetAccountBalance, teardown);
+    GNC_TEST_ADD (suitename, "gnc transaction set/get property", TransactionFixture, NULL, setup, test_gnc_transaction_set_get_property, teardown);
+    GNC_TEST_ADD (suitename, "xaccMallocTransaction", TransactionFixture, NULL, setup, test_xaccMallocTransaction, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransSortSplits", TransactionFixture, NULL, setup, test_xaccTransSortSplits, teardown);
+    GNC_TEST_ADD (suitename, "dupe_trans", TransactionFixture, NULL, setup, test_dupe_trans, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransClone", TransactionFixture, NULL, setup, test_xaccTransClone, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransCopyFromClipBoard", TransactionFixture, NULL, setup, test_xaccTransCopyFromClipBoard, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransCopyFromClipBoard No-Start", TransactionFixture, NULL, setup, test_xaccTransCopyFromClipBoard_no_start, teardown);
+    GNC_TEST_ADD (suitename, "xaccFreeTransaction", TransactionFixture, NULL, setup, test_xaccFreeTransaction, teardown);
+// GNC_TEST_ADD (suitename, "compare split guids", TransactionFixture, NULL, setup, test_compare_split_guids, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransEqual", TransactionFixture, NULL, setup, test_xaccTransEqual, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransLookup", TransactionFixture, NULL, setup, test_xaccTransLookup, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetImbalanceValue", TransactionFixture, NULL, setup, test_xaccTransGetImbalanceValue, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetImbalance", TransactionFixture, NULL, setup, test_xaccTransGetImbalance, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetImbalance Trading Accounts", TransactionFixture, NULL, setup, test_xaccTransGetImbalance_trading, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransIsBalanced", TransactionFixture, NULL, setup, test_xaccTransIsBalanced, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransIsBalanced Trading Accounts", TransactionFixture, NULL, setup, test_xaccTransIsBalanced_trading, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetAccountValue", TransactionFixture, NULL, setup, test_xaccTransGetAccountValue, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetAccountAmount", TransactionFixture, NULL, setup, test_xaccTransGetAccountAmount, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetAccountConvRate", TransactionFixture, NULL, setup, test_xaccTransGetAccountConvRate, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetAccountBalance", TransactionFixture, NULL, setup, test_xaccTransGetAccountBalance, teardown);
 
-    GNC_TEST_ADD (suitename, "xaccTransSetCurrency", Fixture, NULL, setup, test_xaccTransSetCurrency, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransSetCurrency", TransactionFixture, NULL, setup, test_xaccTransSetCurrency, teardown);
     GNC_TEST_ADD_FUNC (suitename, "xaccTransBeginEdit", test_xaccTransBeginEdit);
-    GNC_TEST_ADD (suitename, "xaccTransDestroy", Fixture, NULL, setup, test_xaccTransDestroy, teardown);
-    GNC_TEST_ADD (suitename, "destroy gains", GainsFixture, NULL, setup_with_gains, test_destroy_gains, teardown_with_gains);
-    GNC_TEST_ADD (suitename, "do destroy", GainsFixture, NULL, setup_with_gains, test_do_destroy, teardown_with_gains);
-    GNC_TEST_ADD (suitename, "was trans emptied", Fixture, NULL, setup, test_was_trans_emptied, teardown);
-    GNC_TEST_ADD (suitename, "trans on error", Fixture, NULL, setup, test_trans_on_error, teardown);
-    GNC_TEST_ADD (suitename, "trans cleanup commit", Fixture, NULL, setup, test_trans_cleanup_commit, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransDestroy", TransactionFixture, NULL, setup, test_xaccTransDestroy, teardown);
+    GNC_TEST_ADD (suitename, "destroy gains", TransactionGainsFixture, NULL, setup_with_gains, test_destroy_gains, teardown_with_gains);
+    GNC_TEST_ADD (suitename, "do destroy", TransactionGainsFixture, NULL, setup_with_gains, test_do_destroy, teardown_with_gains);
+    GNC_TEST_ADD (suitename, "was trans emptied", TransactionFixture, NULL, setup, test_was_trans_emptied, teardown);
+    GNC_TEST_ADD (suitename, "trans on error", TransactionFixture, NULL, setup, test_trans_on_error, teardown);
+    GNC_TEST_ADD (suitename, "trans cleanup commit", TransactionFixture, NULL, setup, test_trans_cleanup_commit, teardown);
     GNC_TEST_ADD_FUNC (suitename, "xaccTransCommitEdit", test_xaccTransCommitEdit);
-    GNC_TEST_ADD (suitename, "xaccTransRollbackEdit", Fixture, NULL, setup, test_xaccTransRollbackEdit, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransRollbackEdit - Backend Errors", Fixture, NULL, setup, test_xaccTransRollbackEdit_BackendErrors, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransOrder_num_action", Fixture, NULL, setup, test_xaccTransOrder_num_action, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetTxnType", Fixture, NULL, setup, test_xaccTransGetTxnType, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransGetreadOnly", Fixture, NULL, setup, test_xaccTransGetReadOnly, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransSetDocLink", Fixture, NULL, setup, test_xaccTransSetDocLink, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransVoid", Fixture, NULL, setup, test_xaccTransVoid, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransReverse", Fixture, NULL, setup, test_xaccTransReverse, teardown);
-    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_no_dirty", GainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_no_dirty, teardown_with_gains);
-    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_base_dirty", GainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_base_dirty, teardown_with_gains);
-    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_gains_dirty", GainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_gains_dirty, teardown_with_gains);
+    GNC_TEST_ADD (suitename, "xaccTransRollbackEdit", TransactionFixture, NULL, setup, test_xaccTransRollbackEdit, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransRollbackEdit - Backend Errors", TransactionFixture, NULL, setup, test_xaccTransRollbackEdit_BackendErrors, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransOrder_num_action", TransactionFixture, NULL, setup, test_xaccTransOrder_num_action, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetTxnType", TransactionFixture, NULL, setup, test_xaccTransGetTxnType, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransGetreadOnly", TransactionFixture, NULL, setup, test_xaccTransGetReadOnly, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransSetDocLink", TransactionFixture, NULL, setup, test_xaccTransSetDocLink, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransVoid", TransactionFixture, NULL, setup, test_xaccTransVoid, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransReverse", TransactionFixture, NULL, setup, test_xaccTransReverse, teardown);
+    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_no_dirty", TransactionGainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_no_dirty, teardown_with_gains);
+    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_base_dirty", TransactionGainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_base_dirty, teardown_with_gains);
+    GNC_TEST_ADD (suitename, "xaccTransScrubGainsDate_gains_dirty", TransactionGainsFixture, NULL, setup_with_gains, test_xaccTransScrubGainsDate_gains_dirty, teardown_with_gains);
 
 }

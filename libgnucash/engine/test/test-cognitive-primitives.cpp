@@ -7,6 +7,9 @@
  ********************************************************************/
 
 #include <iostream>
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cmath>
 
@@ -28,7 +31,7 @@ static void test_emergent_pattern_detection();
 static void test_system_coherence();
 
 /** Main test runner */
-int main()
+int main(int argc, char** argv)
 {
     std::cout << "\n================================================================\n";
     std::cout << "    Phase 1: Cognitive Primitives & Hypergraph Encoding Tests\n";
@@ -36,7 +39,7 @@ int main()
     
     // Initialize QOF and engine
     qof_init();
-    gnc_engine_init_static();
+    gnc_engine_init_static(argc, argv);
     
     // Initialize cognitive primitives system
     if (!gnc_cognitive_primitives_init()) {

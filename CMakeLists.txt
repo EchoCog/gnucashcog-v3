@@ -1092,7 +1092,11 @@ set(toplvl_DIST_local ${gnucash_DOCS}
     doxygen.cfg.in
     doxygen_main_page.c
     CMakeLists.txt
-    README)
+    README.md
+    phase1-cognitive-primitives-demo.cpp
+    phase4-api-demo.cpp
+    meta-cognitive-demo.cpp
+    phase6-comprehensive-demo.cpp)
 
 
 set_local_dist(toplvl_DIST ${toplvl_DIST_local})

@@ -561,9 +561,6 @@ int main(int argc, char** argv) {
     g_message("Starting Phase 6 Comprehensive Test Suite");
     g_message("==========================================");
     
-    // Initialize GLib type system
-    g_type_init();
-    
     // Run unified system infrastructure tests
     g_message("\n=== Unified System Infrastructure Tests ===");
     run_test(test_unified_system_initialization, "unified_system_initialization");

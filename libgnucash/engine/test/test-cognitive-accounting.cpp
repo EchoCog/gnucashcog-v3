@@ -22,6 +22,18 @@
 #include "qof.h"
 #include "gnc-engine.h"
 
+static bool* s_message_received = nullptr;
+
+static void
+test_cognitive_message_handler(const GncAccountCognitiveMessage* message)
+{
+    if (s_message_received)
+        *s_message_received = true;
+
+    g_message("Received cognitive message: %s -> %s",
+              message->source_module, message->target_module);
+}
+
 class CognitiveAccountingTest : public ::testing::Test
 {
 protected:
@@ -29,7 +41,6 @@ protected:
     {
         // Initialize QOF and engine
         qof_init();
-        qof_load_backend_shared_modules();
         
         // Initialize cognitive accounting
         gnc_cognitive_accounting_init();
@@ -83,12 +94,14 @@ TEST_F(CognitiveAccountingTest, InitializationTest)
 
 TEST_F(CognitiveAccountingTest, AtomSpaceAccountRepresentation)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Test converting accounts to AtomSpace representation
     GncAtomHandle checking_atom = gnc_account_to_atomspace(checking_account);
-    EXPECT_NE(checking_atom, 0);
+    EXPECT_NE(checking_atom, null_atom);
     
     GncAtomHandle expense_atom = gnc_account_to_atomspace(expense_account);
-    EXPECT_NE(expense_atom, 0);
+    EXPECT_NE(expense_atom, null_atom);
     
     // Atoms should be different
     EXPECT_NE(checking_atom, expense_atom);
@@ -100,6 +113,8 @@ TEST_F(CognitiveAccountingTest, AtomSpaceAccountRepresentation)
 
 TEST_F(CognitiveAccountingTest, AccountHierarchyLinks)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Create hierarchy links
     GncAtomHandle root_atom = gnc_account_to_atomspace(root_account);
     GncAtomHandle checking_atom = gnc_account_to_atomspace(checking_account);
@@ -107,7 +122,7 @@ TEST_F(CognitiveAccountingTest, AccountHierarchyLinks)
     GncAtomHandle hierarchy_link = gnc_atomspace_create_hierarchy_link(
         root_atom, checking_atom);
     
-    EXPECT_NE(hierarchy_link, 0);
+    EXPECT_NE(hierarchy_link, null_atom);
 }
 
 TEST_F(CognitiveAccountingTest, PLNDoubleEntryValidation)
@@ -194,16 +209,20 @@ TEST_F(CognitiveAccountingTest, PLNNEntryValidation)
 
 TEST_F(CognitiveAccountingTest, TrialBalanceProof)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Generate trial balance proof
     GncAtomHandle proof_handle = gnc_pln_generate_trial_balance_proof(root_account);
-    EXPECT_NE(proof_handle, 0);
+    EXPECT_NE(proof_handle, null_atom);
 }
 
 TEST_F(CognitiveAccountingTest, PLProof)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Generate P&L proof
     GncAtomHandle proof_handle = gnc_pln_generate_pl_proof(income_account, expense_account);
-    EXPECT_NE(proof_handle, 0);
+    EXPECT_NE(proof_handle, null_atom);
 }
 
 TEST_F(CognitiveAccountingTest, ECANAttentionAllocation)
@@ -261,6 +280,8 @@ TEST_F(CognitiveAccountingTest, AttentionAllocationAcrossAccounts)
 
 TEST_F(CognitiveAccountingTest, MOSESBalancingStrategies)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Create array of historical transactions
     Transaction *transaction1 = xaccMallocTransaction(book);
     Transaction *transaction2 = xaccMallocTransaction(book);
@@ -268,7 +289,7 @@ TEST_F(CognitiveAccountingTest, MOSESBalancingStrategies)
     
     // Discover balancing strategies
     GncAtomHandle strategy_handle = gnc_moses_discover_balancing_strategies(transactions, 2);
-    EXPECT_NE(strategy_handle, 0);
+    EXPECT_NE(strategy_handle, null_atom);
 }
 
 TEST_F(CognitiveAccountingTest, MOSESTransactionOptimization)
@@ -287,7 +308,7 @@ TEST_F(CognitiveAccountingTest, UREBalancePrediction)
     gnc_numeric predicted_balance = gnc_ure_predict_balance(checking_account, future_date);
     
     // Should return a valid numeric
-    EXPECT_FALSE(gnc_numeric_error(predicted_balance));
+    EXPECT_EQ(gnc_numeric_check(predicted_balance), GNC_ERROR_OK);
 }
 
 TEST_F(CognitiveAccountingTest, URETransactionValidity)
@@ -316,17 +337,19 @@ TEST_F(CognitiveAccountingTest, URETransactionValidity)
 
 TEST_F(CognitiveAccountingTest, OpenCogStyleAtomOperations)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Test OpenCog-style atom creation functions
     GncAtomHandle concept_atom = gnc_atomspace_create_concept_node("TestConcept");
-    EXPECT_NE(concept_atom, 0);
+    EXPECT_NE(concept_atom, null_atom);
     
     GncAtomHandle predicate_atom = gnc_atomspace_create_predicate_node("TestPredicate");
-    EXPECT_NE(predicate_atom, 0);
+    EXPECT_NE(predicate_atom, null_atom);
     
     // Test evaluation link creation
     GncAtomHandle eval_link = gnc_atomspace_create_evaluation_link(
         predicate_atom, concept_atom, 0.8);
-    EXPECT_NE(eval_link, 0);
+    EXPECT_NE(eval_link, null_atom);
     
     // Test truth value operations
     gnc_atomspace_set_truth_value(concept_atom, 0.9, 0.85);
@@ -364,20 +387,15 @@ TEST_F(CognitiveAccountingTest, SchemeRepresentations)
 
 TEST_F(CognitiveAccountingTest, CognitiveMessagePassing)
 {
+    bool message_received = false;
+    s_message_received = &message_received;
+
     // Test inter-module communication
-    gboolean message_received = FALSE;
-    
-    // Register message handler
-    auto test_handler = [](const GncCognitiveMessage* message) {
-        // This would be called when message is received
-        g_message("Received cognitive message: %s -> %s", 
-                  message->source_module, message->target_module);
-    };
-    
-    EXPECT_TRUE(gnc_register_cognitive_message_handler("TestModule", test_handler));
+    EXPECT_TRUE(gnc_register_cognitive_message_handler("TestModule",
+                                                       test_cognitive_message_handler));
     
     // Create and send a test message
-    GncCognitiveMessage message = {};
+    GncAccountCognitiveMessage message = {};
     message.source_module = "AtomSpace";
     message.target_module = "TestModule";
     message.message_type = "ActivationUpdate";
@@ -386,10 +404,14 @@ TEST_F(CognitiveAccountingTest, CognitiveMessagePassing)
     message.timestamp = time(nullptr);
     
     EXPECT_TRUE(gnc_send_cognitive_message(&message));
+    EXPECT_TRUE(message_received);
+    s_message_received = nullptr;
 }
 
 TEST_F(CognitiveAccountingTest, EmergentPatternDetection)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Set up test accounts with activity
     Account* test_accounts[] = {checking_account, expense_account, income_account};
     gint n_accounts = 3;
@@ -422,15 +444,17 @@ TEST_F(CognitiveAccountingTest, EmergentPatternDetection)
     params.novelty_score = 0.1;
     params.pattern_frequency = 1;
     
-    GncAtomHandle emergent_pattern = gnc_detect_emergent_patterns(
+    GncAtomHandle emergent_pattern = gnc_detect_account_emergent_patterns(
         test_accounts, n_accounts, &params);
     
     // Should detect some pattern given the activity
-    EXPECT_NE(emergent_pattern, 0);
+    EXPECT_NE(emergent_pattern, null_atom);
 }
 
 TEST_F(CognitiveAccountingTest, DistributedAttentionOptimization)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Test distributed attention optimization
     gdouble cognitive_load = 0.7;
     gdouble available_resources = 1.0;
@@ -438,7 +462,7 @@ TEST_F(CognitiveAccountingTest, DistributedAttentionOptimization)
     GncAtomHandle optimization_strategy = gnc_optimize_distributed_attention(
         cognitive_load, available_resources);
     
-    EXPECT_NE(optimization_strategy, 0);
+    EXPECT_NE(optimization_strategy, null_atom);
     
     // Verify truth value was set
     gdouble strength, confidence;
@@ -485,6 +509,8 @@ TEST_F(CognitiveAccountingTest, EnhancedECANAttention)
 
 TEST_F(CognitiveAccountingTest, EnhancedMOSESEvolution)
 {
+    const auto null_atom = static_cast<GncAtomHandle>(0);
+
     // Create historical transactions for MOSES analysis
     std::vector<Transaction*> historical_transactions;
     
@@ -511,9 +537,9 @@ TEST_F(CognitiveAccountingTest, EnhancedMOSESEvolution)
     
     // Test enhanced MOSES strategy discovery
     GncAtomHandle strategy = gnc_moses_discover_balancing_strategies(
-        trans_array, historical_transactions.size());
+        trans_array, static_cast<gint>(historical_transactions.size()));
     
-    EXPECT_NE(strategy, 0);
+    EXPECT_NE(strategy, null_atom);
     
     // Verify truth value was set based on fitness
     gdouble strength, confidence;
