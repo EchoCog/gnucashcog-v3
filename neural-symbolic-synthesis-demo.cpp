@@ -10,12 +10,13 @@
 
 #include <iostream>
 #include <iomanip>
+#include <math.h>
 #include <glib.h>
 #include "gnc-neural-symbolic-kernels.h"
 #include "gnc-cognitive-accounting.h"
 #include "gnc-tensor-network.h"
 
-void demonstrate_custom_ggml_kernels()
+static void demonstrate_custom_ggml_kernels()
 {
     std::cout << "\n=== Phase 3: Custom ggml Kernels for Symbolic Operations ===\n";
     
@@ -68,7 +69,7 @@ void demonstrate_custom_ggml_kernels()
     gnc_tensor_data_destroy(result);
 }
 
-void demonstrate_neural_inference_hooks()
+static void demonstrate_neural_inference_hooks()
 {
     std::cout << "\n=== Phase 3: Neural Inference Hooks for AtomSpace Integration ===\n";
     
@@ -135,7 +136,7 @@ void demonstrate_neural_inference_hooks()
     gnc_neural_symbolic_inference_destroy(inference);
 }
 
-void demonstrate_cognitive_primitive_operations()
+static void demonstrate_cognitive_primitive_operations()
 {
     std::cout << "\n=== Phase 3: Custom Operations for Cognitive Primitives ===\n";
     
@@ -219,7 +220,7 @@ void demonstrate_cognitive_primitive_operations()
     gnc_tensor_data_destroy(analogy_result);
 }
 
-void demonstrate_attention_flow_optimization()
+static void demonstrate_attention_flow_optimization()
 {
     std::cout << "\n=== Phase 3: ECAN Attention Flow Tensor Optimization ===\n";
     
@@ -277,7 +278,7 @@ void demonstrate_attention_flow_optimization()
     gnc_tensor_data_destroy(optimized_attention);
 }
 
-void demonstrate_gradient_free_reasoning()
+static void demonstrate_gradient_free_reasoning()
 {
     std::cout << "\n=== Phase 3: Gradient-Free Symbolic Reasoning ===\n";
     
@@ -352,7 +353,7 @@ void demonstrate_gradient_free_reasoning()
     gnc_gradient_free_reasoning_destroy(reasoning);
 }
 
-void demonstrate_performance_benchmarking()
+static void demonstrate_performance_benchmarking()
 {
     std::cout << "\n=== Phase 3: Tensor Signature Benchmarking ===\n";
     
@@ -415,7 +416,7 @@ void demonstrate_performance_benchmarking()
     gnc_tensor_data_destroy(benchmark_data);
 }
 
-void demonstrate_end_to_end_pipeline()
+static void demonstrate_end_to_end_pipeline()
 {
     std::cout << "\n=== Phase 3: End-to-End Neural-Symbolic Inference Pipeline ===\n";
     
@@ -481,7 +482,7 @@ void demonstrate_end_to_end_pipeline()
     // Phase 5: Consistency validation
     std::cout << "\nPhase 5: Consistency validation...\n";
     
-    GList *symbolic_atoms = g_list_append(NULL, GUINT64_TO_POINTER(symbolic_concept));
+    GList *symbolic_atoms = g_list_append(NULL, GSIZE_TO_POINTER(symbolic_concept));
     gdouble consistency_score;
     
     if (gnc_neural_symbolic_consistency_check(hybrid_result, symbolic_atoms, &consistency_score)) {

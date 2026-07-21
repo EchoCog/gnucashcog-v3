@@ -61,6 +61,7 @@ set (engine_HEADERS
   gnc-ko6ml-atomspace.h
   gnc-cognitive-comms.h
   gnc-tensor-network.h
+  gnc-neural-symbolic-kernels.h
   gnc-meta-cognitive.h
   gnc-ontogenesis-bridge.h
   gnc-cognitive-unification.h
@@ -178,6 +179,7 @@ set (engine_SOURCES
   gnc-ko6ml-atomspace.cpp
   gnc-cognitive-comms.cpp
   gnc-tensor-network.cpp
+  gnc-neural-symbolic-kernels.cpp
   gnc-meta-cognitive.cpp
   gnc-ontogenesis-bridge.cpp
   gnc-cognitive-unification.cpp

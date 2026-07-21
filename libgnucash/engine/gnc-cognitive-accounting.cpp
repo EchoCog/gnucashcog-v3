@@ -18,6 +18,7 @@
 #include "gnc-cognitive-scheme.h"
 #include "gnc-cognitive-comms.h"
 #include "gnc-tensor-network.h"
+#include "gnc-neural-symbolic-kernels.h"
 #include "Account.h"
 #include "Split.h"
 #include "Transaction.h"
@@ -451,6 +452,13 @@ gboolean gnc_cognitive_accounting_init(void)
         g_message("Distributed ggml tensor network initialized successfully");
     }
     
+    // Initialize Phase 3: Neural-symbolic synthesis via custom ggml kernels
+    if (!gnc_neural_symbolic_kernels_init()) {
+        g_warning("Failed to initialize Phase 3 neural-symbolic kernels");
+    } else {
+        g_message("Phase 3: Neural-Symbolic Synthesis via Custom ggml Kernels initialized");
+    }
+    
     // Register core modules with communication hub
     gnc_cognitive_register_module(GNC_MODULE_ATOMSPACE);
     gnc_cognitive_register_module(GNC_MODULE_PLN);
@@ -479,6 +487,9 @@ void gnc_cognitive_accounting_shutdown(void)
     
     // Shutdown Phase 1: Cognitive primitives
     gnc_cognitive_primitives_shutdown();
+    
+    // Shutdown Phase 3: Neural-symbolic kernels
+    gnc_neural_symbolic_kernels_shutdown();
     
     // Shutdown tensor network
     gnc_tensor_network_shutdown();

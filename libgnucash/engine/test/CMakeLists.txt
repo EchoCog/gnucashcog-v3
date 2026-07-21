@@ -223,6 +223,10 @@ gnc_add_test(test-ko6ml-translation test-ko6ml-translation.cpp
 gnc_add_test(test-tensor-network test-tensor-network.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Phase 3: Neural-symbolic synthesis kernel test
+gnc_add_test(test-neural-symbolic-kernels test-neural-symbolic-kernels.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 # Meta-cognitive test
 gnc_add_test(test-meta-cognitive test-meta-cognitive.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
@@ -258,6 +262,7 @@ set(test_engine_SOURCES_DIST
         test-cognitive-primitives.cpp
         test-ko6ml-translation.cpp
         test-tensor-network.cpp
+        test-neural-symbolic-kernels.cpp
         test-meta-cognitive.cpp
         test-ontogenesis-bridge.cpp
         test-phase6-comprehensive.cpp
