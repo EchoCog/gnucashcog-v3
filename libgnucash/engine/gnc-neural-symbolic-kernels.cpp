@@ -265,17 +265,19 @@ gboolean gnc_symbolic_tensor_attention_flow(GncTensorData *attention_state,
     
     gsize n_nodes = attention_state->shape[0];
     
-    // Apply attention flow dynamics: A' = A + M * A * dt
+    // Apply conservative attention flow dynamics:
+    // A'[i] = A[i] + (inflow[i] - outflow[i]) * dt
     for (gsize i = 0; i < n_nodes; i++) {
         gfloat current_attention = attention_state->data[i];
         gfloat flow_sum = 0.0f;
         
-        // Sum incoming attention flows
+        // Sum incoming attention flows minus outgoing attention flows
         for (gsize j = 0; j < n_nodes; j++) {
             if (i != j) {
-                gfloat flow_rate = flow_matrix->data[j * n_nodes + i];
-                gfloat source_attention = attention_state->data[j];
-                flow_sum += flow_rate * source_attention;
+                gfloat inflow_rate = flow_matrix->data[j * n_nodes + i];
+                gfloat outflow_rate = flow_matrix->data[i * n_nodes + j];
+                flow_sum += inflow_rate * attention_state->data[j];
+                flow_sum -= outflow_rate * current_attention;
             }
         }
         
@@ -562,7 +564,7 @@ gboolean gnc_atomspace_neural_compute(GList *atom_handles,
     GList *current = atom_handles;
     
     while (current) {
-        GncAtomHandle atom_handle = GPOINTER_TO_UINT64(current->data);
+        GncAtomHandle atom_handle = GPOINTER_TO_SIZE(current->data);
         
         // Convert atom to tensor
         gsize shape[] = {64}; // 64-dimensional representation
@@ -579,7 +581,7 @@ gboolean gnc_atomspace_neural_compute(GList *atom_handles,
             GncAtomHandle result_atom;
             if (gnc_neural_tensor_to_atomspace(result_tensor, &result_atom)) {
                 *result_atoms = g_list_append(*result_atoms, 
-                                            GUINT64_TO_POINTER(result_atom));
+                                            GSIZE_TO_POINTER(result_atom));
             }
         }
         
@@ -608,7 +610,7 @@ gboolean gnc_neural_symbolic_consistency_check(GncTensorData *neural_state,
     GList *current = symbolic_atoms;
     
     while (current) {
-        GncAtomHandle atom_handle = GPOINTER_TO_UINT64(current->data);
+        GncAtomHandle atom_handle = GPOINTER_TO_SIZE(current->data);
         
         // Convert atom to tensor representation
         gsize shape[] = {neural_state->shape[0]};
