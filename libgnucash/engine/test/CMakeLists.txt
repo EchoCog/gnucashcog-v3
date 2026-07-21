@@ -98,6 +98,7 @@ set(gtest_qof_LIBS
 set(gtest_engine_INCLUDES
   ${MODULEPATH}
   ${CMAKE_SOURCE_DIR}/libgnucash/core-utils
+  ${CMAKE_SOURCE_DIR}/libgnucash/engine/test-core
   ${CMAKE_BINARY_DIR}/common # for config.h
   ${CMAKE_SOURCE_DIR}/common # for platform.h
   ../../../borrowed/libc

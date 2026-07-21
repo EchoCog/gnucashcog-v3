@@ -22,19 +22,21 @@
  *  @brief Unit tests for recursive meta-cognition and evolutionary optimization
  */
 
+static void initialize_default_metrics(GncCognitiveMetrics *metrics);
+
 /* Test fixture setup and teardown */
-static void setup(void)
+static void setup(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_assert_true(gnc_meta_cognitive_init());
 }
 
-static void teardown(void)
+static void teardown(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     gnc_meta_cognitive_shutdown();
 }
 
 /* Test meta-cognitive engine initialization */
-static void test_meta_cognitive_init(void)
+static void test_meta_cognitive_init(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing meta-cognitive engine initialization...");
     
@@ -49,7 +51,7 @@ static void test_meta_cognitive_init(void)
 }
 
 /* Test self-analysis functionality */
-static void test_self_analysis(void)
+static void test_self_analysis(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing self-analysis capabilities...");
     
@@ -94,7 +96,7 @@ static void test_self_analysis(void)
 }
 
 /* Test metrics management */
-static void test_metrics_management(void)
+static void test_metrics_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing cognitive metrics management...");
     
@@ -130,7 +132,7 @@ static void test_metrics_management(void)
 }
 
 /* Test evolutionary optimization */
-static void test_evolutionary_optimization(void)
+static void test_evolutionary_optimization(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing evolutionary optimization...");
     
@@ -171,7 +173,7 @@ static void test_evolutionary_optimization(void)
 }
 
 /* Test safety mechanisms */
-static void test_safety_mechanisms(void)
+static void test_safety_mechanisms(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing safety mechanisms...");
     
@@ -239,7 +241,7 @@ static void test_safety_mechanisms(void)
 }
 
 /* Test recursive improvement cycle */
-static void test_recursive_improvement(void)
+static void test_recursive_improvement(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing recursive improvement cycle...");
     
@@ -275,7 +277,7 @@ static void test_recursive_improvement(void)
 }
 
 /* Test introspection and pattern analysis */
-static void test_introspection(void)
+static void test_introspection(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing introspection and pattern analysis...");
     
@@ -297,7 +299,7 @@ static void test_introspection(void)
     
     // Test fitness landscape generation
     gchar *landscape_json = gnc_meta_cognitive_generate_fitness_landscape(
-        session, GNC_METACOG_PROCESS_AI);
+        session, GNC_METACOG_PROCESS_ALL);
     g_assert_nonnull(landscape_json);
     g_assert_true(g_str_has_prefix(landscape_json, "{")); // Should be JSON
     g_assert_true(g_str_has_suffix(landscape_json, "}"));
@@ -307,7 +309,7 @@ static void test_introspection(void)
 }
 
 /* Test error handling and edge cases */
-static void test_error_handling(void)
+static void test_error_handling(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing error handling and edge cases...");
     
@@ -344,7 +346,7 @@ static void test_error_handling(void)
 }
 
 /* Test concurrent operations */
-static void test_concurrent_operations(void)
+static void test_concurrent_operations(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing concurrent operations...");
     
@@ -371,7 +373,7 @@ static void test_concurrent_operations(void)
 }
 
 /* Test configuration management */
-static void test_config_management(void)
+static void test_config_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing configuration management...");
     

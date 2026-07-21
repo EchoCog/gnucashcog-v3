@@ -48,7 +48,7 @@ typedef struct
 {
     Account *acct;
     AccountTestFunctions *func;
-} Fixture;
+} AccountFixture;
 
 typedef struct
 {
@@ -309,7 +309,7 @@ insert_split (Account *parent, Transaction *txn, SplitParms *p)
 }
 
 static void
-setup (Fixture *fixture, gconstpointer pData)
+setup (AccountFixture *fixture, gconstpointer pData)
 {
     auto book = qof_book_new ();
     auto root = gnc_account_create_root (book);
@@ -389,7 +389,7 @@ setup (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-teardown ( Fixture *fixture, gconstpointer pData)
+teardown ( AccountFixture *fixture, gconstpointer pData)
 {
     Account *child = fixture->acct;
     qof_book_destroy (gnc_account_get_book (child));
@@ -403,7 +403,7 @@ const gchar *
 gnc_get_account_separator_string (void)// C: 31 in 7 SCM: 64 in 6*/
 //Simple Getter. No Test.
 /* static void
-test_gnc_get_account_separator_string (Fixture *fixture, gconstpointer pData)
+test_gnc_get_account_separator_string (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* gnc_get_account_separator
@@ -467,7 +467,7 @@ test_gnc_account_name_violations_errmsg ()
 /* gnc_account_list_name_violations
 GList *gnc_account_list_name_violations (QofBook *book, const gchar *separator)// C: 6 in 4 */
 static void
-test_gnc_account_list_name_violations (Fixture *fixture, gconstpointer pData)
+test_gnc_account_list_name_violations (AccountFixture *fixture, gconstpointer pData)
 {
     auto log_level = static_cast<GLogLevelFlags>(G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL);
     auto log_domain = "gnc.engine";
@@ -665,7 +665,7 @@ Simple pass-through for qof_collection_get_data ()
  * only in one place.
  */
 static void
-test_gnc_book_set_get_root_account (Fixture *fixture, gconstpointer pData)
+test_gnc_book_set_get_root_account (AccountFixture *fixture, gconstpointer pData)
 {
     auto log_level = static_cast<GLogLevelFlags>(G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL);
     auto log_domain = "gnc.account";
@@ -754,7 +754,7 @@ static Account *
 xaccCloneAccountCommon (const Account *from, QofBook *book)// 3
 */
 static void
-test_xaccCloneAccount (Fixture *fixture, gconstpointer pData)
+test_xaccCloneAccount (AccountFixture *fixture, gconstpointer pData)
 {
     Account *clone;
     QofBook *book = gnc_account_get_book (fixture->acct);
@@ -804,7 +804,7 @@ static void
 xaccFreeAccountChildren (Account *acc)// 3
 */
 static void
-test_xaccFreeAccountChildren (Fixture *fixture, gconstpointer pData)
+test_xaccFreeAccountChildren (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     AccountPrivate *priv = fixture->func->get_private (root);
@@ -854,7 +854,7 @@ acc_free
 /* Aside from being broken (the assert at the end of freeing the splits fails),
    Account deallocation is implemented wrong. We don't run this test, and the function will be replaced when the time comes. */
 static void
-test_xaccFreeAccount (Fixture *fixture, gconstpointer pData)
+test_xaccFreeAccount (AccountFixture *fixture, gconstpointer pData)
 {
     auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call\n"
                   " xaccAccountBeginEdit(); xaccAccountDestroy();\n";
@@ -907,7 +907,7 @@ xaccAccountBeginEdit (Account *acc)// C: 80 in 29 SCM: 15 in 9
 No test, just a passthrough.
 */
 /* static void
-test_xaccAccountBeginEdit (Fixture *fixture, gconstpointer pData)
+test_xaccAccountBeginEdit (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* on_done
@@ -916,7 +916,7 @@ static void on_done (QofInstance *inst)// 2
 No test, just queues a qof event.
 */
 /* static void
-test_on_done (Fixture *fixture, gconstpointer pData)
+test_on_done (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* on_err
@@ -924,7 +924,7 @@ static void on_err (QofInstance *inst, QofBackendError errcode)// 2
 ***Callback for qof_commit_edit_part2
 */
 /* static void
-test_on_err (Fixture *fixture, gconstpointer pData)
+test_on_err (AccountFixture *fixture, gconstpointer pData)
 No test, just a pass-through.
 {
 }*/
@@ -934,7 +934,7 @@ static void acc_free (QofInstance *inst)// 2
 No test, just a passthrough -- plus see comment at test_xaccFreeAccount, which is what this is a passthrough of.
 */
 /* static void
-test_acc_free (Fixture *fixture, gconstpointer pData)
+test_acc_free (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* destroy_pending_splits_for_account
@@ -944,7 +944,7 @@ destroy_pending_splits_for_account (QofInstance *ent, gpointer acc)// 2
 Pass-through, no test.
 */
 /* static void
-test_destroy_pending_splits_for_account (Fixture *fixture, gconstpointer pData)
+test_destroy_pending_splits_for_account (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* xaccAccountCommitEdit
@@ -954,7 +954,7 @@ Also tests:
   xaccAccountDestroy
 */
 static void
-test_xaccAccountCommitEdit (Fixture *fixture, gconstpointer pData)
+test_xaccAccountCommitEdit (AccountFixture *fixture, gconstpointer pData)
 {
     auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call\n"
                   " xaccAccountBeginEdit(); xaccAccountDestroy();\n";
@@ -1024,7 +1024,7 @@ static gboolean
 xaccAcctChildrenEqual (const GList *na,// 2
 */
 /* static void
-test_xaccAcctChildrenEqual (Fixture *fixture, gconstpointer pData)
+test_xaccAcctChildrenEqual (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /* xaccAccountEqual
@@ -1033,7 +1033,7 @@ xaccAccountEqual (const Account *aa, const Account *ab, gboolean check_guids)// 
 Test support only; don't test for now.
 */
 /* static void
-test_xaccAccountEqual (Fixture *fixture, gconstpointer pData)
+test_xaccAccountEqual (AccountFixture *fixture, gconstpointer pData)
 {
 }*/
 /*
@@ -1054,7 +1054,7 @@ Also tests gnc_account_remove_split ()
 
 
 static void
-test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
+test_gnc_account_kvp_setters_getters (AccountFixture *fixture, gconstpointer pData)
 {
     Account *account = xaccMallocAccount (gnc_account_get_book (fixture->acct));
     xaccAccountSetType (account, ACCT_TYPE_EQUITY);
@@ -1343,7 +1343,7 @@ set_kvp_string_path (Account *acc, std::vector<std::string> const & path,
 }
 
 static void
-test_gnc_account_get_map_entry (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_map_entry (AccountFixture *fixture, gconstpointer pData)
 {
     Account *account = xaccMallocAccount (gnc_account_get_book (fixture->acct));
     char *entry;
@@ -1376,7 +1376,7 @@ test_gnc_account_get_map_entry (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-test_gnc_account_insert_remove_split (Fixture *fixture, gconstpointer pData)
+test_gnc_account_insert_remove_split (AccountFixture *fixture, gconstpointer pData)
 {
     QofBook *book = gnc_account_get_book (fixture->acct);
     Split *split1 = xaccMallocSplit (book);
@@ -1514,7 +1514,7 @@ Passthrough, no test.
 void
 xaccAccountRemoveLot (Account *acc, GNCLot *lot)// C: 6 in 4 */
 static void
-test_xaccAccountInsertRemoveLot (Fixture *fixture, gconstpointer pData)
+test_xaccAccountInsertRemoveLot (AccountFixture *fixture, gconstpointer pData)
 {
     QofBook *book = gnc_account_get_book (fixture->acct);
     GNCLot *lot = gnc_lot_new (book);
@@ -1601,7 +1601,7 @@ xaccAccountMoveAllSplits (Account *accfrom, Account *accto)// C: 5 in 3
 void
 xaccAccountRecomputeBalance (Account * acc)// C: 9 in 5 */
 static void
-test_xaccAccountRecomputeBalance (Fixture *fixture, gconstpointer pData)
+test_xaccAccountRecomputeBalance (AccountFixture *fixture, gconstpointer pData)
 {
     AccountPrivate *priv = fixture->func->get_private (fixture->acct);
     gnc_numeric bal = gnc_numeric_zero (), rec_bal = gnc_numeric_zero (),
@@ -1731,7 +1731,7 @@ static void
 qofAccountSetParent (Account *acc, QofInstance *parent)// 2
 */
 static void
-test_qofAccountSetParent (Fixture *fixture, gconstpointer pData)
+test_qofAccountSetParent (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *old_parent = gnc_account_get_parent (fixture->acct);
@@ -1760,7 +1760,7 @@ gnc_account_append_child (Account *new_parent, Account *child)// C: 29 in 18 SCM
 void
 gnc_account_remove_child (Account *parent, Account *child)// C: 4 in 2 */
 static void
-test_gnc_account_append_remove_child (Fixture *fixture, gconstpointer pData)
+test_gnc_account_append_remove_child (AccountFixture *fixture, gconstpointer pData)
 {
     QofBook *book = gnc_account_get_book (fixture->acct);
     QofBook *fbook = qof_book_new ();
@@ -1867,7 +1867,7 @@ test_gnc_account_append_remove_child (Fixture *fixture, gconstpointer pData)
 gint
 gnc_account_n_descendants (const Account *account)// C: 12 in 6 */
 static void
-test_gnc_account_n_descendants (Fixture *fixture, gconstpointer pData)
+test_gnc_account_n_descendants (AccountFixture *fixture, gconstpointer pData)
 {
     g_assert_cmpint (
         gnc_account_n_descendants (
@@ -1877,7 +1877,7 @@ test_gnc_account_n_descendants (Fixture *fixture, gconstpointer pData)
 gint
 gnc_account_get_current_depth (const Account *account)// C: 4 in 2 SCM: 12 in 4*/
 static void
-test_gnc_account_get_current_depth (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_current_depth (AccountFixture *fixture, gconstpointer pData)
 {
     g_assert_cmpint (
         gnc_account_get_current_depth (fixture->acct), == , 2);
@@ -1886,7 +1886,7 @@ test_gnc_account_get_current_depth (Fixture *fixture, gconstpointer pData)
 gint
 gnc_account_get_tree_depth (const Account *account)// C: 4 in 2 SCM: 3 in 3*/
 static void
-test_gnc_account_get_tree_depth (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_tree_depth (AccountFixture *fixture, gconstpointer pData)
 {
     /* Magic result value based on depth of the "complex" AccountParms array. */
     g_assert_cmpint (
@@ -1919,7 +1919,7 @@ print_account (gpointer item, gpointer data)
 }
 
 static void
-test_gnc_account_get_descendants (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_descendants (AccountFixture *fixture, gconstpointer pData)
 {
 
     GList *list = gnc_account_get_descendants (
@@ -1935,7 +1935,7 @@ test_gnc_account_get_descendants (Fixture *fixture, gconstpointer pData)
 GList *
 gnc_account_get_descendants_sorted (const Account *account)// C: 6 in 4 SCM: 62 in 46*/
 static void
-test_gnc_account_get_descendants_sorted (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_descendants_sorted (AccountFixture *fixture, gconstpointer pData)
 {
     GList *list = gnc_account_get_descendants_sorted (
                       gnc_account_get_root (fixture->acct));
@@ -1949,7 +1949,7 @@ test_gnc_account_get_descendants_sorted (Fixture *fixture, gconstpointer pData)
 Account *
 gnc_account_lookup_by_name (const Account *parent, const char * name)// C: 22 in 12 */
 static void
-test_gnc_account_lookup_by_name (Fixture *fixture, gconstpointer pData)
+test_gnc_account_lookup_by_name (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root, *target;
     gchar *code;
@@ -1979,7 +1979,7 @@ Account *
 gnc_account_lookup_by_name_duplicated (const Account *parent, const char * name)
  */
 static void
-test_gnc_account_lookup_by_name_duplicated (Fixture *fixture, gconstpointer pData)
+test_gnc_account_lookup_by_name_duplicated (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root, *target;
     gchar *code;
@@ -1995,7 +1995,7 @@ test_gnc_account_lookup_by_name_duplicated (Fixture *fixture, gconstpointer pDat
 Account *
 gnc_account_lookup_by_code (const Account *parent, const char * code)// C: 5 in 3 */
 static void
-test_gnc_account_lookup_by_code (Fixture *fixture, gconstpointer pData)
+test_gnc_account_lookup_by_code (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root, *target;
     gchar *name;
@@ -2018,7 +2018,7 @@ static Account *
 gnc_account_lookup_by_full_name_helper (const Account *parent,// 3
 */
 static void
-test_gnc_account_lookup_by_full_name_helper ( Fixture *fixture,
+test_gnc_account_lookup_by_full_name_helper ( AccountFixture *fixture,
         gconstpointer pData )
 {
     Account *root, *target;
@@ -2046,7 +2046,7 @@ test_gnc_account_lookup_by_full_name_helper ( Fixture *fixture,
 Account *
 gnc_account_lookup_by_full_name (const Account *any_acc,// C: 15 in 11 SCM: 8 in 4*/
 static void
-test_gnc_account_lookup_by_full_name (Fixture *fixture, gconstpointer pData)
+test_gnc_account_lookup_by_full_name (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root, *target;
     auto names1 = "income:taxable:int";
@@ -2097,7 +2097,7 @@ thunk2 (Account *s, gpointer data)
 void
 gnc_account_foreach_child (const Account *acc,// C: 6 in 3 */
 static void
-test_gnc_account_foreach_child (Fixture *fixture, gconstpointer pData)
+test_gnc_account_foreach_child (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *begin = gnc_account_lookup_by_code (root, "4000");
@@ -2109,7 +2109,7 @@ test_gnc_account_foreach_child (Fixture *fixture, gconstpointer pData)
 gpointer
 gnc_account_foreach_child_until (const Account *acc,// C: 4 in 2 */
 /*static void
-test_gnc_account_foreach_child_until (Fixture *fixture, gconstpointer pData)
+test_gnc_account_foreach_child_until (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *first = gnc_account_lookup_by_code (root, "4000");
@@ -2129,7 +2129,7 @@ test_gnc_account_foreach_child_until (Fixture *fixture, gconstpointer pData)
 void
 gnc_account_foreach_descendant (const Account *acc,// C: 23 in 14 */
 static void
-test_gnc_account_foreach_descendant (Fixture *fixture, gconstpointer pData)
+test_gnc_account_foreach_descendant (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *begin = gnc_account_lookup_by_code (root, "4000");
@@ -2141,7 +2141,7 @@ test_gnc_account_foreach_descendant (Fixture *fixture, gconstpointer pData)
 gpointer
 gnc_account_foreach_descendant_until (const Account *acc,// C: 8 in 6 */
 static void
-test_gnc_account_foreach_descendant_until (Fixture *fixture, gconstpointer pData)
+test_gnc_account_foreach_descendant_until (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *first = gnc_account_lookup_by_code (root, "2000");
@@ -2177,7 +2177,7 @@ test_gnc_account_foreach_descendant_until (Fixture *fixture, gconstpointer pData
 gchar *
 gnc_account_get_full_name (const Account *account)// C: 38 in 21 SCM: 29 in 19*/
 static void
-test_gnc_account_get_full_name (Fixture *fixture, gconstpointer pData)
+test_gnc_account_get_full_name (AccountFixture *fixture, gconstpointer pData)
 {
     gchar *result;
     result = gnc_account_get_full_name (NULL);
@@ -2204,7 +2204,7 @@ Deprecated, Don't test.
 gnc_numeric
 xaccAccountGetProjectedMinimumBalance (const Account *acc)// C: 4 in 2 */
 static void
-test_xaccAccountGetProjectedMinimumBalance (Fixture *fixture, gconstpointer pData)
+test_xaccAccountGetProjectedMinimumBalance (AccountFixture *fixture, gconstpointer pData)
 {
     gnc_numeric val, bal = gnc_numeric_zero ();
     gfloat dval;
@@ -2233,7 +2233,7 @@ test_xaccAccountGetProjectedMinimumBalance (Fixture *fixture, gconstpointer pDat
 gnc_numeric
 xaccAccountGetBalanceAsOfDate (Account *acc, time64 date)// C: 12 in 7 SCM: 4 in 4*/
 static void
-test_xaccAccountGetBalanceAsOfDate (Fixture *fixture, gconstpointer pData)
+test_xaccAccountGetBalanceAsOfDate (AccountFixture *fixture, gconstpointer pData)
 {
     gnc_numeric val, bal = gnc_numeric_zero ();
     gfloat dval;
@@ -2261,7 +2261,7 @@ test_xaccAccountGetBalanceAsOfDate (Fixture *fixture, gconstpointer pData)
 gnc_numeric
 xaccAccountGetPresentBalance (const Account *acc)// C: 4 in 2 */
 static void
-test_xaccAccountGetPresentBalance (Fixture *fixture, gconstpointer pData)
+test_xaccAccountGetPresentBalance (AccountFixture *fixture, gconstpointer pData)
 {
     gnc_numeric val, bal = gnc_numeric_zero ();
     gfloat dval;
@@ -2338,7 +2338,7 @@ bogus_lot_sort_func (gconstpointer a, gconstpointer b)
 }
 
 static void
-test_xaccAccountFindOpenLots (Fixture *fixture, gconstpointer pData)
+test_xaccAccountFindOpenLots (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *acct = gnc_account_lookup_by_name (root, "baz");
@@ -2375,7 +2375,7 @@ bogus_for_each_lot_func (GNCLot *lot, gpointer data)
 gpointer
 xaccAccountForEachLot (const Account *acc,// C: 2 in 2 */
 static void
-test_xaccAccountForEachLot (Fixture *fixture, gconstpointer pData)
+test_xaccAccountForEachLot (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *acct = gnc_account_lookup_by_name (root, "baz");
@@ -2407,7 +2407,7 @@ test_xaccAccountForEachLot (Fixture *fixture, gconstpointer pData)
 gboolean
 xaccAccountHasAncestor (const Account *acc, const Account * ancestor)// C: 5 in 3 */
 static void
-test_xaccAccountHasAncestor (Fixture *fixture, gconstpointer pData)
+test_xaccAccountHasAncestor (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *ltcg = gnc_account_lookup_by_name (root, "ltcg");
@@ -2638,7 +2638,7 @@ Split *
 xaccAccountFindSplitByDesc (const Account *acc, const char *description)// C: 5 in 3 */
 
 static void
-test_xaccAccountFindSplitByDesc (Fixture *fixture, gconstpointer pData)
+test_xaccAccountFindSplitByDesc (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *baz = gnc_account_lookup_by_name (root, "baz");
@@ -2653,7 +2653,7 @@ test_xaccAccountFindSplitByDesc (Fixture *fixture, gconstpointer pData)
 Transaction *
 xaccAccountFindTransByDesc (const Account *acc, const char *description)// C: 5 in 3 */
 static void
-test_xaccAccountFindTransByDesc (Fixture *fixture, gconstpointer pData)
+test_xaccAccountFindTransByDesc (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *baz = gnc_account_lookup_by_name (root, "baz");
@@ -2668,7 +2668,7 @@ test_xaccAccountFindTransByDesc (Fixture *fixture, gconstpointer pData)
 void
 gnc_account_join_children (Account *to_parent, Account *from_parent)// C: 4 in 2 SCM: 3 in 3*/
 static void
-test_gnc_account_join_children (Fixture *fixture, gconstpointer pData)
+test_gnc_account_join_children (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *broker = gnc_account_lookup_by_name (root, "broker");
@@ -2687,7 +2687,7 @@ test_gnc_account_join_children (Fixture *fixture, gconstpointer pData)
 void
 gnc_account_merge_children (Account *parent)// C: 4 in 2 SCM: 2 in 2*/
 static void
-test_gnc_account_merge_children (Fixture *fixture, gconstpointer pData)
+test_gnc_account_merge_children (AccountFixture *fixture, gconstpointer pData)
 {
     Account *root = gnc_account_get_root (fixture->acct);
     Account *taxable = gnc_account_lookup_by_name (root, "taxable");
@@ -2801,7 +2801,7 @@ int
 xaccAccountTreeForEachTransaction (Account *acc, TransactionCallback proc,
                                    void *data);// C: 302 in 89 SCM: 1158 in 142*/
 static void
-test_xaccAccountTreeForEachTransaction (Fixture *fixture, gconstpointer pData )
+test_xaccAccountTreeForEachTransaction (AccountFixture *fixture, gconstpointer pData )
 {
     Thunkdata td = {0, NULL};
     Account *root = gnc_account_get_root (fixture->acct);
@@ -2820,7 +2820,7 @@ test_xaccAccountTreeForEachTransaction (Fixture *fixture, gconstpointer pData )
 gint
 xaccAccountForEachTransaction (const Account *acc, TransactionCallback proc,// C: 8 in 4 */
 static void
-test_xaccAccountForEachTransaction (Fixture *fixture, gconstpointer pData )
+test_xaccAccountForEachTransaction (AccountFixture *fixture, gconstpointer pData )
 {
     Thunkdata td = {0, NULL};
     Account *root = gnc_account_get_root (fixture->acct);
@@ -2847,57 +2847,57 @@ test_suite_account (void)
 
     GNC_TEST_ADD_FUNC (suitename, "gnc set account separator", test_gnc_set_account_separator);
     GNC_TEST_ADD_FUNC (suitename, "gnc account name violations errmsg", test_gnc_account_name_violations_errmsg);
-    GNC_TEST_ADD (suitename, "gnc account list name violations", Fixture, &bad_data, setup, test_gnc_account_list_name_violations,  teardown);
+    GNC_TEST_ADD (suitename, "gnc account list name violations", AccountFixture, &bad_data, setup, test_gnc_account_list_name_violations,  teardown);
     GNC_TEST_ADD_FUNC (suitename, "account create and destroy", test_gnc_account_create_and_destroy);
-    GNC_TEST_ADD (suitename, "book set/get root account", Fixture, NULL, setup, test_gnc_book_set_get_root_account, teardown);
+    GNC_TEST_ADD (suitename, "book set/get root account", AccountFixture, NULL, setup, test_gnc_book_set_get_root_account, teardown);
     GNC_TEST_ADD_FUNC (suitename, "xaccMallocAccount", test_xaccMallocAccount);
 
     GNC_TEST_ADD_FUNC (suitename, "gnc account create root", test_gnc_account_create_root);
-    GNC_TEST_ADD (suitename, "xaccCloneAccount", Fixture, NULL, setup, test_xaccCloneAccount,  teardown );
+    GNC_TEST_ADD (suitename, "xaccCloneAccount", AccountFixture, NULL, setup, test_xaccCloneAccount,  teardown );
     /*Destroys the account, so we have to do the tear down in the test function */
-    GNC_TEST_ADD (suitename, "xaccFreeAccountChildren", Fixture,  &good_data, setup, test_xaccFreeAccountChildren,  NULL);
+    GNC_TEST_ADD (suitename, "xaccFreeAccountChildren", AccountFixture,  &good_data, setup, test_xaccFreeAccountChildren,  NULL);
     /* See comment at the beginning of test_xaccFreeAccount */
-    GNC_TEST_ADD (suitename, "xaccFreeAccount", Fixture, &good_data, setup, test_xaccFreeAccount,  NULL );
-    GNC_TEST_ADD (suitename, "xaccAccountCommitEdit", Fixture, &good_data, setup, test_xaccAccountCommitEdit,  NULL );
-// GNC_TEST_ADD (suitename, "xaccAcctChildrenEqual", Fixture, NULL, setup, test_xaccAcctChildrenEqual,  teardown );
-// GNC_TEST_ADD (suitename, "xaccAccountEqual", Fixture, NULL, setup, test_xaccAccountEqual,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account kvp getters & setters", Fixture, NULL, setup, test_gnc_account_kvp_setters_getters,  teardown );
-    GNC_TEST_ADD (suitename, "test_gnc_account_get_map_entry", Fixture, NULL, setup, test_gnc_account_get_map_entry,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account insert & remove split", Fixture, NULL, setup, test_gnc_account_insert_remove_split,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccount Insert and Remove Lot", Fixture, &good_data, setup, test_xaccAccountInsertRemoveLot,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountRecomputeBalance", Fixture, &some_data, setup, test_xaccAccountRecomputeBalance,  teardown );
+    GNC_TEST_ADD (suitename, "xaccFreeAccount", AccountFixture, &good_data, setup, test_xaccFreeAccount,  NULL );
+    GNC_TEST_ADD (suitename, "xaccAccountCommitEdit", AccountFixture, &good_data, setup, test_xaccAccountCommitEdit,  NULL );
+// GNC_TEST_ADD (suitename, "xaccAcctChildrenEqual", AccountFixture, NULL, setup, test_xaccAcctChildrenEqual,  teardown );
+// GNC_TEST_ADD (suitename, "xaccAccountEqual", AccountFixture, NULL, setup, test_xaccAccountEqual,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account kvp getters & setters", AccountFixture, NULL, setup, test_gnc_account_kvp_setters_getters,  teardown );
+    GNC_TEST_ADD (suitename, "test_gnc_account_get_map_entry", AccountFixture, NULL, setup, test_gnc_account_get_map_entry,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account insert & remove split", AccountFixture, NULL, setup, test_gnc_account_insert_remove_split,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccount Insert and Remove Lot", AccountFixture, &good_data, setup, test_xaccAccountInsertRemoveLot,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountRecomputeBalance", AccountFixture, &some_data, setup, test_xaccAccountRecomputeBalance,  teardown );
     GNC_TEST_ADD_FUNC (suitename, "xaccAccountOrder", test_xaccAccountOrder );
-    GNC_TEST_ADD (suitename, "qofAccountSetParent", Fixture, &some_data, setup, test_qofAccountSetParent,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account append/remove child", Fixture, NULL, setup, test_gnc_account_append_remove_child,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account n descendants", Fixture, &some_data, setup, test_gnc_account_n_descendants,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account get current depth", Fixture, &some_data, setup, test_gnc_account_get_current_depth,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account get tree depth", Fixture, &complex, setup, test_gnc_account_get_tree_depth,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account get descendants", Fixture, &complex, setup, test_gnc_account_get_descendants,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account get descendants sorted", Fixture, &complex, setup, test_gnc_account_get_descendants_sorted,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account lookup by name", Fixture, &complex, setup, test_gnc_account_lookup_by_name,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account lookup by name - duplicated", Fixture, &complex_duplicated, setup, test_gnc_account_lookup_by_name_duplicated,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account lookup by code", Fixture, &complex, setup, test_gnc_account_lookup_by_code,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account lookup by full name helper", Fixture, &complex, setup, test_gnc_account_lookup_by_full_name_helper,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account lookup by full name", Fixture, &complex, setup, test_gnc_account_lookup_by_full_name,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account foreach child", Fixture, &complex, setup, test_gnc_account_foreach_child,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account foreach descendant", Fixture, &complex, setup, test_gnc_account_foreach_descendant,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account foreach descendant until", Fixture, &complex, setup, test_gnc_account_foreach_descendant_until,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account get full name", Fixture, &good_data, setup, test_gnc_account_get_full_name,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountGetProjectedMinimumBalance", Fixture, &some_data, setup, test_xaccAccountGetProjectedMinimumBalance,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountGetBalanceAsOfDate", Fixture, &some_data, setup, test_xaccAccountGetBalanceAsOfDate,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountGetPresentBalance", Fixture, &some_data, setup, test_xaccAccountGetPresentBalance,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountFindOpenLots", Fixture, &complex_data, setup, test_xaccAccountFindOpenLots,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountForEachLot", Fixture, &complex_data, setup, test_xaccAccountForEachLot,  teardown );
+    GNC_TEST_ADD (suitename, "qofAccountSetParent", AccountFixture, &some_data, setup, test_qofAccountSetParent,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account append/remove child", AccountFixture, NULL, setup, test_gnc_account_append_remove_child,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account n descendants", AccountFixture, &some_data, setup, test_gnc_account_n_descendants,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account get current depth", AccountFixture, &some_data, setup, test_gnc_account_get_current_depth,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account get tree depth", AccountFixture, &complex, setup, test_gnc_account_get_tree_depth,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account get descendants", AccountFixture, &complex, setup, test_gnc_account_get_descendants,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account get descendants sorted", AccountFixture, &complex, setup, test_gnc_account_get_descendants_sorted,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account lookup by name", AccountFixture, &complex, setup, test_gnc_account_lookup_by_name,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account lookup by name - duplicated", AccountFixture, &complex_duplicated, setup, test_gnc_account_lookup_by_name_duplicated,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account lookup by code", AccountFixture, &complex, setup, test_gnc_account_lookup_by_code,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account lookup by full name helper", AccountFixture, &complex, setup, test_gnc_account_lookup_by_full_name_helper,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account lookup by full name", AccountFixture, &complex, setup, test_gnc_account_lookup_by_full_name,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account foreach child", AccountFixture, &complex, setup, test_gnc_account_foreach_child,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account foreach descendant", AccountFixture, &complex, setup, test_gnc_account_foreach_descendant,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account foreach descendant until", AccountFixture, &complex, setup, test_gnc_account_foreach_descendant_until,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account get full name", AccountFixture, &good_data, setup, test_gnc_account_get_full_name,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountGetProjectedMinimumBalance", AccountFixture, &some_data, setup, test_xaccAccountGetProjectedMinimumBalance,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountGetBalanceAsOfDate", AccountFixture, &some_data, setup, test_xaccAccountGetBalanceAsOfDate,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountGetPresentBalance", AccountFixture, &some_data, setup, test_xaccAccountGetPresentBalance,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountFindOpenLots", AccountFixture, &complex_data, setup, test_xaccAccountFindOpenLots,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountForEachLot", AccountFixture, &complex_data, setup, test_xaccAccountForEachLot,  teardown );
 
-    GNC_TEST_ADD (suitename, "xaccAccountHasAncestor", Fixture, &complex, setup, test_xaccAccountHasAncestor,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountHasAncestor", AccountFixture, &complex, setup, test_xaccAccountHasAncestor,  teardown );
     GNC_TEST_ADD_FUNC (suitename, "AccountType Stuff", test_xaccAccountType_Stuff );
     GNC_TEST_ADD_FUNC (suitename, "AccountType Compatibility", test_xaccAccountType_Compatibility);
-    GNC_TEST_ADD (suitename, "xaccAccountFindSplitByDesc", Fixture, &complex_data, setup, test_xaccAccountFindSplitByDesc,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountFindTransByDesc", Fixture, &complex_data, setup, test_xaccAccountFindTransByDesc,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account join children", Fixture, &complex, setup, test_gnc_account_join_children,  teardown );
-    GNC_TEST_ADD (suitename, "gnc account merge children", Fixture, &complex_data, setup, test_gnc_account_merge_children,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountForEachTransaction", Fixture, &complex_data, setup, test_xaccAccountForEachTransaction,  teardown );
-    GNC_TEST_ADD (suitename, "xaccAccountTreeForEachTransaction", Fixture, &complex_data, setup, test_xaccAccountTreeForEachTransaction,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountFindSplitByDesc", AccountFixture, &complex_data, setup, test_xaccAccountFindSplitByDesc,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountFindTransByDesc", AccountFixture, &complex_data, setup, test_xaccAccountFindTransByDesc,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account join children", AccountFixture, &complex, setup, test_gnc_account_join_children,  teardown );
+    GNC_TEST_ADD (suitename, "gnc account merge children", AccountFixture, &complex_data, setup, test_gnc_account_merge_children,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountForEachTransaction", AccountFixture, &complex_data, setup, test_xaccAccountForEachTransaction,  teardown );
+    GNC_TEST_ADD (suitename, "xaccAccountTreeForEachTransaction", AccountFixture, &complex_data, setup, test_xaccAccountTreeForEachTransaction,  teardown );
 
 
 }

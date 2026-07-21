@@ -52,10 +52,10 @@ typedef struct
     gnc_commodity *curr;
     gnc_commodity *comm;
     GSList *hdlrs;
-} Fixture;
+} SplitFixture;
 
 static void
-setup (Fixture *fixture, gconstpointer pData)
+setup (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = qof_book_new ();
     Transaction *txn = xaccMallocTransaction (book);
@@ -98,7 +98,7 @@ setup (Fixture *fixture, gconstpointer pData)
 }
 
 static void
-teardown (Fixture *fixture, gconstpointer pData)
+teardown (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Account *acc = xaccSplitGetAccount (fixture->split);
@@ -274,7 +274,7 @@ Split *
 xaccMallocSplit(QofBook *book)// C: 46 in 23 SCM: 3 in 2
 */
 static void
-test_xaccMallocSplit (Fixture *fixture, gconstpointer pData)
+test_xaccMallocSplit (SplitFixture *fixture, gconstpointer pData)
 {
     /* We use this in the setup, so we can just verify that it works. */
     g_assert_true (fixture->split != NULL);
@@ -284,7 +284,7 @@ Split *
 xaccDupeSplit (const Split *s)// C: 1
 */
 static void
-test_xaccDupeSplit (Fixture *fixture, gconstpointer pData)
+test_xaccDupeSplit (SplitFixture *fixture, gconstpointer pData)
 {
     Split *f_split = fixture->split;
     Split *split = xaccDupeSplit (f_split);
@@ -318,7 +318,7 @@ Split *
 xaccSplitCloneNoKvp (const Split *s)// C: 1
 */
 static void
-test_xaccSplitCloneNoKvp (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCloneNoKvp (SplitFixture *fixture, gconstpointer pData)
 {
     Split *f_split = fixture->split;
     Split *split = xaccSplitCloneNoKvp (f_split);
@@ -360,7 +360,7 @@ void mark_split (Split *s)// C: 2 in 2 SCM: 10 in 1 Local: 8:0:0
 OK, weird. Doesn't mark the split, marks the account sort-dirty and balance-dirty parameters.
 */
 static void
-test_mark_split (Fixture *fixture, gconstpointer pData)
+test_mark_split (SplitFixture *fixture, gconstpointer pData)
 {
     gboolean sort_dirty, balance_dirty;
     g_object_get (fixture->split->acc,
@@ -385,7 +385,7 @@ static gboolean
 xaccSplitEqualCheckBal (const char *tag, gnc_numeric a, gnc_numeric b)//
 */
 static void
-test_xaccSplitEqualCheckBal (Fixture *fixture, gconstpointer pData)
+test_xaccSplitEqualCheckBal (SplitFixture *fixture, gconstpointer pData)
 {
     gchar *msg = "[xaccSplitEqualCheckBal] test balances differ: 123/100 vs 456/100";
     GLogLevelFlags loglevel = G_LOG_LEVEL_INFO;
@@ -410,7 +410,7 @@ xaccSplitEqual(const Split *sa, const Split *sb,// C: 2 in 2 SCM: 1
 */
 
 static void
-test_xaccSplitEqual (Fixture *fixture, gconstpointer pData)
+test_xaccSplitEqual (SplitFixture *fixture, gconstpointer pData)
 {
     Split *split1 = xaccSplitCloneNoKvp (fixture->split);
     Split *split2 = xaccDupeSplit (fixture->split);
@@ -554,7 +554,7 @@ test_error_callback (gpointer pdata, QofBackendError errcode)
     data->lasterr = errcode;
 }
 static void
-test_xaccSplitCommitEdit (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCommitEdit (SplitFixture *fixture, gconstpointer pData)
 {
     gboolean sort_dirty, balance_dirty;
     gchar *msg1 = "[xaccSplitCommitEdit()] Account lost track of moved or deleted split.";
@@ -641,7 +641,7 @@ void
 xaccSplitRollbackEdit(Split *s)// C: 2 in 1
 */
 static void
-test_xaccSplitRollbackEdit (Fixture *fixture, gconstpointer pData)
+test_xaccSplitRollbackEdit (SplitFixture *fixture, gconstpointer pData)
 {
     TestSignal sig1, sig2, sig3;
     Transaction *txn1 = fixture->split->parent;
@@ -699,7 +699,7 @@ Split *
 xaccSplitLookup (const GncGUID *guid, QofBook *book)// C: 24 in 9
 */
 static void
-test_xaccSplitLookup (Fixture *fixture, gconstpointer pData)
+test_xaccSplitLookup (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     const GncGUID *guid = xaccSplitGetGUID (fixture->split);
@@ -715,7 +715,7 @@ void
 xaccSplitDetermineGainStatus (Split *split)// C: 7 in 2
 */
 static void
-test_xaccSplitDetermineGainStatus (Fixture *fixture, gconstpointer pData)
+test_xaccSplitDetermineGainStatus (SplitFixture *fixture, gconstpointer pData)
 {
     guint gains = fixture->split->gains;
     Split *g_split = fixture->split->gains_split;
@@ -750,7 +750,7 @@ static inline int
 get_currency_denom(const Split * s)// Local: 6:0:0
 */
 static void
-test_get_currency_denom (Fixture *fixture, gconstpointer pData)
+test_get_currency_denom (SplitFixture *fixture, gconstpointer pData)
 {
     Transaction *txn = fixture->split->parent;
     const gint denom = gnc_commodity_get_fraction (fixture->curr);
@@ -768,7 +768,7 @@ static inline int
 get_commodity_denom(const Split * s)// Local: 5:0:0
 */
 static void
-test_get_commodity_denom (Fixture *fixture, gconstpointer pData)
+test_get_commodity_denom (SplitFixture *fixture, gconstpointer pData)
 {
     Account *acc = fixture->split->acc;
     const gint denom = gnc_commodity_get_fraction (fixture->comm);
@@ -783,7 +783,7 @@ void
 xaccSplitSetSharePriceAndAmount (Split *s, gnc_numeric price, gnc_numeric amt)// C: 1
 */
 static void
-test_xaccSplitSetSharePriceAndAmount (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetSharePriceAndAmount (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric price = {678, 100};
     gnc_numeric amt = {10000, 1000};
@@ -811,7 +811,7 @@ void
 xaccSplitSetSharePrice (Split *s, gnc_numeric price)// C: 2 in 1
 */
 static void
-test_xaccSplitSetSharePrice (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetSharePrice (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric price = {678, 100};
 
@@ -832,7 +832,7 @@ void
 xaccSplitSetAmount (Split *s, gnc_numeric amt)// C: 37 in 19 SCM: 18 in 2 Local: 4:0:0
 */
 static void
-test_xaccSplitSetAmount (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetAmount (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric amt = {10000, 1000};
 
@@ -853,7 +853,7 @@ void
 xaccSplitSetValue (Split *s, gnc_numeric amt)// C: 43 in 18 SCM: 18 in 2 Local: 4:0:0
 */
 static void
-test_xaccSplitSetValue (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetValue (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric value = {678, 100};
 
@@ -872,7 +872,7 @@ void
 xaccSplitSetBaseValue (Split *s, gnc_numeric value,// C: 19 in 7
 */
 static void
-test_xaccSplitSetBaseValue (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetBaseValue (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     gnc_commodity *gnaira = gnc_commodity_new (book, "Gnaira", "CURRENCY", "GNA", "", 100);
@@ -1101,7 +1101,7 @@ gint
 xaccSplitOrder (const Split *sa, const Split *sb)// C: 5 in 3
 */
 static void
-test_xaccSplitOrder (Fixture *fixture, gconstpointer pData)
+test_xaccSplitOrder (SplitFixture *fixture, gconstpointer pData)
 {
     Split *split = fixture->split;
     QofBook *book = xaccSplitGetBook (split);
@@ -1222,7 +1222,7 @@ gint
 xaccSplitOrderDateOnly (const Split *sa, const Split *sb)// C: 2 in 1
 */
 static void
-test_xaccSplitOrderDateOnly (Fixture *fixture, gconstpointer pData)
+test_xaccSplitOrderDateOnly (SplitFixture *fixture, gconstpointer pData)
 {
     /* Doesn't do what you'd first think: It orders based on the
      * transaction date posted.
@@ -1263,7 +1263,7 @@ static gboolean
 get_corr_account_split(const Split *sa, const Split **retval)// Local: 3:0:0
 */
 static void
-test_get_corr_account_split (Fixture *fixture, gconstpointer pData)
+test_get_corr_account_split (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1365,7 +1365,7 @@ char *
 xaccSplitGetCorrAccountFullName(const Split *sa)// SCM: 1  Local: 2:0:0
 */
 static void
-test_xaccSplitGetCorrAccountFullName (Fixture *fixture, gconstpointer pData)
+test_xaccSplitGetCorrAccountFullName (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1409,7 +1409,7 @@ const char *
 xaccSplitGetCorrAccountCode(const Split *sa)// Local: 2:0:0
 */
 static void
-test_xaccSplitGetCorrAccountCode (Fixture *fixture, gconstpointer pData)
+test_xaccSplitGetCorrAccountCode (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1440,7 +1440,7 @@ int
 xaccSplitCompareAccountFullNames(const Split *sa, const Split *sb)// SCM: 1
 */
 static void
-test_xaccSplitCompareAccountFullNames (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCompareAccountFullNames (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1480,7 +1480,7 @@ int
 xaccSplitCompareAccountCodes(const Split *sa, const Split *sb)// SCM: 1
 */
 static void
-test_xaccSplitCompareAccountCodes (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCompareAccountCodes (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Account *acc = fixture->split->acc;
@@ -1511,7 +1511,7 @@ int
 xaccSplitCompareOtherAccountFullNames(const Split *sa, const Split *sb)// SCM: 1
 */
 static void
-test_xaccSplitCompareOtherAccountFullNames (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCompareOtherAccountFullNames (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1572,7 +1572,7 @@ int
 xaccSplitCompareOtherAccountCodes(const Split *sa, const Split *sb)// SCM: 1
 */
 static void
-test_xaccSplitCompareOtherAccountCodes (Fixture *fixture, gconstpointer pData)
+test_xaccSplitCompareOtherAccountCodes (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Account *acc = fixture->split->acc;
@@ -1620,7 +1620,7 @@ void
 xaccSplitSetParent(Split *s, Transaction *t)// C: 10 in 7 SCM: 6 in 2 Local: 3:0:0
 */
 static void
-test_xaccSplitSetParent (Fixture *fixture, gconstpointer pData)
+test_xaccSplitSetParent (SplitFixture *fixture, gconstpointer pData)
 {
     QofBook *book = xaccSplitGetBook (fixture->split);
     Transaction *txn = fixture->split->parent;
@@ -1661,7 +1661,7 @@ gnc_numeric
 xaccSplitGetSharePrice (const Split * split)// C: 3 in 3 SCM: 4 in 3
 */
 static void
-test_xaccSplitGetSharePrice (Fixture *fixture, gconstpointer pData)
+test_xaccSplitGetSharePrice (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric result, quotient;
     gnc_numeric expected = gnc_numeric_create (0, 1);
@@ -1766,7 +1766,7 @@ test_xaccSplitGetSharePrice (Fixture *fixture, gconstpointer pData)
  * xaccSplitMakeStockSplit // C: 1
  */
 static void
-test_xaccSplitMakeStockSplit (Fixture *fixture, gconstpointer pData)
+test_xaccSplitMakeStockSplit (SplitFixture *fixture, gconstpointer pData)
 {
     Split *split = fixture->split;
     g_assert_cmpstr (xaccSplitGetType (split), ==, "normal");
@@ -1780,7 +1780,7 @@ Split *
 xaccSplitGetOtherSplit (const Split *split)// C: 13 in 7 SCM: 10 in 4 Local: 1:0:0
 */
 static void
-test_xaccSplitGetOtherSplit (Fixture *fixture, gconstpointer pData)
+test_xaccSplitGetOtherSplit (SplitFixture *fixture, gconstpointer pData)
 {
     Split *split = fixture->split;
     Transaction *txn = split->parent;
@@ -1838,7 +1838,7 @@ test_xaccSplitGetOtherSplit (Fixture *fixture, gconstpointer pData)
  * xaccSplitUnvoid // C: 1
 */
 static void
-test_xaccSplitVoid (Fixture *fixture, gconstpointer pData)
+test_xaccSplitVoid (SplitFixture *fixture, gconstpointer pData)
 {
     gnc_numeric value = fixture->split->value;
     gnc_numeric amount = fixture->split->amount;
@@ -1898,38 +1898,38 @@ test_suite_split (void)
     GNC_TEST_ADD_FUNC (suitename, "gnc split init", test_gnc_split_init);
     GNC_TEST_ADD_FUNC (suitename, "gnc split dispose", test_gnc_split_dispose);
     GNC_TEST_ADD_FUNC (suitename, "gnc split set & get property", test_gnc_split_set_get_property);
-    GNC_TEST_ADD (suitename, "xaccMallocSplit", Fixture, NULL, setup, test_xaccMallocSplit, teardown);
-    GNC_TEST_ADD (suitename, "xaccDupeSplit", Fixture, NULL, setup, test_xaccDupeSplit, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCloneNoKvp", Fixture, NULL, setup, test_xaccSplitCloneNoKvp, teardown);
-    GNC_TEST_ADD (suitename, "mark split", Fixture, NULL, setup, test_mark_split, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitEqualCheckBal", Fixture, NULL, setup, test_xaccSplitEqualCheckBal, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitEqual", Fixture, NULL, setup, test_xaccSplitEqual, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCommitEdit", Fixture, NULL, setup, test_xaccSplitCommitEdit, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitRollbackEdit", Fixture, NULL, setup, test_xaccSplitRollbackEdit, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitLookup", Fixture, NULL, setup, test_xaccSplitLookup, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitDetermineGainStatus", Fixture, NULL, setup, test_xaccSplitDetermineGainStatus, teardown);
-    GNC_TEST_ADD (suitename, "get currency denom", Fixture, NULL, setup, test_get_currency_denom, teardown);
-    GNC_TEST_ADD (suitename, "get commodity denom", Fixture, NULL, setup, test_get_commodity_denom, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetSharePriceAndAmount", Fixture, NULL, setup, test_xaccSplitSetSharePriceAndAmount, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetSharePrice", Fixture, NULL, setup, test_xaccSplitSetSharePrice, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetAmount", Fixture, NULL, setup, test_xaccSplitSetAmount, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetValue", Fixture, NULL, setup, test_xaccSplitSetValue, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetBaseValue", Fixture, NULL, setup, test_xaccSplitSetBaseValue, teardown);
+    GNC_TEST_ADD (suitename, "xaccMallocSplit", SplitFixture, NULL, setup, test_xaccMallocSplit, teardown);
+    GNC_TEST_ADD (suitename, "xaccDupeSplit", SplitFixture, NULL, setup, test_xaccDupeSplit, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCloneNoKvp", SplitFixture, NULL, setup, test_xaccSplitCloneNoKvp, teardown);
+    GNC_TEST_ADD (suitename, "mark split", SplitFixture, NULL, setup, test_mark_split, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitEqualCheckBal", SplitFixture, NULL, setup, test_xaccSplitEqualCheckBal, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitEqual", SplitFixture, NULL, setup, test_xaccSplitEqual, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCommitEdit", SplitFixture, NULL, setup, test_xaccSplitCommitEdit, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitRollbackEdit", SplitFixture, NULL, setup, test_xaccSplitRollbackEdit, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitLookup", SplitFixture, NULL, setup, test_xaccSplitLookup, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitDetermineGainStatus", SplitFixture, NULL, setup, test_xaccSplitDetermineGainStatus, teardown);
+    GNC_TEST_ADD (suitename, "get currency denom", SplitFixture, NULL, setup, test_get_currency_denom, teardown);
+    GNC_TEST_ADD (suitename, "get commodity denom", SplitFixture, NULL, setup, test_get_commodity_denom, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetSharePriceAndAmount", SplitFixture, NULL, setup, test_xaccSplitSetSharePriceAndAmount, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetSharePrice", SplitFixture, NULL, setup, test_xaccSplitSetSharePrice, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetAmount", SplitFixture, NULL, setup, test_xaccSplitSetAmount, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetValue", SplitFixture, NULL, setup, test_xaccSplitSetValue, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetBaseValue", SplitFixture, NULL, setup, test_xaccSplitSetBaseValue, teardown);
     GNC_TEST_ADD_FUNC (suitename, "xaccSplitConvertAmount", test_xaccSplitConvertAmount);
     GNC_TEST_ADD_FUNC (suitename, "xaccSplitDestroy", test_xaccSplitDestroy);
-    GNC_TEST_ADD (suitename, "xaccSplitOrder", Fixture, NULL, setup, test_xaccSplitOrder, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitOrderDateOnly", Fixture, NULL, setup, test_xaccSplitOrderDateOnly, teardown);
-    GNC_TEST_ADD (suitename, "get corr account split", Fixture, NULL, setup, test_get_corr_account_split, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitGetCorrAccountFullName", Fixture, NULL, setup, test_xaccSplitGetCorrAccountFullName, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitGetCorrAccountCode", Fixture, NULL, setup, test_xaccSplitGetCorrAccountCode, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCompareAccountFullNames", Fixture, NULL, setup, test_xaccSplitCompareAccountFullNames, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCompareAccountCodes", Fixture, NULL, setup, test_xaccSplitCompareAccountCodes, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCompareOtherAccountFullNames", Fixture, NULL, setup, test_xaccSplitCompareOtherAccountFullNames, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitCompareOtherAccountCodes", Fixture, NULL, setup, test_xaccSplitCompareOtherAccountCodes, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitSetParent", Fixture, NULL, setup, test_xaccSplitSetParent, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitGetSharePrice", Fixture, NULL, setup, test_xaccSplitGetSharePrice, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitMakeStockSplit", Fixture, NULL, setup, test_xaccSplitMakeStockSplit, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitGetOtherSplit", Fixture, NULL, setup, test_xaccSplitGetOtherSplit, teardown);
-    GNC_TEST_ADD (suitename, "xaccSplitVoid", Fixture, NULL, setup, test_xaccSplitVoid, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitOrder", SplitFixture, NULL, setup, test_xaccSplitOrder, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitOrderDateOnly", SplitFixture, NULL, setup, test_xaccSplitOrderDateOnly, teardown);
+    GNC_TEST_ADD (suitename, "get corr account split", SplitFixture, NULL, setup, test_get_corr_account_split, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitGetCorrAccountFullName", SplitFixture, NULL, setup, test_xaccSplitGetCorrAccountFullName, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitGetCorrAccountCode", SplitFixture, NULL, setup, test_xaccSplitGetCorrAccountCode, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCompareAccountFullNames", SplitFixture, NULL, setup, test_xaccSplitCompareAccountFullNames, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCompareAccountCodes", SplitFixture, NULL, setup, test_xaccSplitCompareAccountCodes, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCompareOtherAccountFullNames", SplitFixture, NULL, setup, test_xaccSplitCompareOtherAccountFullNames, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitCompareOtherAccountCodes", SplitFixture, NULL, setup, test_xaccSplitCompareOtherAccountCodes, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitSetParent", SplitFixture, NULL, setup, test_xaccSplitSetParent, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitGetSharePrice", SplitFixture, NULL, setup, test_xaccSplitGetSharePrice, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitMakeStockSplit", SplitFixture, NULL, setup, test_xaccSplitMakeStockSplit, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitGetOtherSplit", SplitFixture, NULL, setup, test_xaccSplitGetOtherSplit, teardown);
+    GNC_TEST_ADD (suitename, "xaccSplitVoid", SplitFixture, NULL, setup, test_xaccSplitVoid, teardown);
 
 }

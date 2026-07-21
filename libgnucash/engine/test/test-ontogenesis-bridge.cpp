@@ -28,13 +28,13 @@
  * Fixture helpers
  * --------------------------------------------------------------- */
 
-static void setup(void)
+static void setup(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_assert_true(gnc_meta_cognitive_init());
     /* gnc_meta_cognitive_init() now also calls gnc_ontogenesis_bridge_init() */
 }
 
-static void teardown(void)
+static void teardown(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     gnc_meta_cognitive_shutdown();
     /* gnc_meta_cognitive_shutdown() now also calls gnc_ontogenesis_bridge_shutdown() */
@@ -44,7 +44,7 @@ static void teardown(void)
  * Bridge lifecycle
  * --------------------------------------------------------------- */
 
-static void test_bridge_init_shutdown(void)
+static void test_bridge_init_shutdown(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing bridge init / shutdown lifecycle...");
 
@@ -60,7 +60,7 @@ static void test_bridge_init_shutdown(void)
  * Directive submission
  * --------------------------------------------------------------- */
 
-static void test_submit_directive(void)
+static void test_submit_directive(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing directive submission to ontogenesis kernel...");
 
@@ -92,7 +92,7 @@ static void test_submit_directive(void)
  * Result integration into meta-cognitive metrics
  * --------------------------------------------------------------- */
 
-static void test_integrate_result(void)
+static void test_integrate_result(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing ontogenesis result integration into meta-cognitive metrics...");
 
@@ -128,7 +128,7 @@ static void test_integrate_result(void)
  * Submit from analysis
  * --------------------------------------------------------------- */
 
-static void test_submit_from_analysis(void)
+static void test_submit_from_analysis(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing directive submission from self-analysis...");
 
@@ -158,7 +158,7 @@ static void test_submit_from_analysis(void)
  * Combined step
  * --------------------------------------------------------------- */
 
-static void test_combined_step(void)
+static void test_combined_step(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing combined meta-cognition + ontogenesis step...");
 
@@ -176,7 +176,7 @@ static void test_combined_step(void)
  * Combined loop start / stop
  * --------------------------------------------------------------- */
 
-static void test_combined_loop(void)
+static void test_combined_loop(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing combined loop start / stop...");
 
@@ -200,7 +200,7 @@ static void test_combined_loop(void)
  * Kernel registration replacement
  * --------------------------------------------------------------- */
 
-static void test_kernel_replacement(void)
+static void test_kernel_replacement(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing kernel replacement...");
 
@@ -218,7 +218,7 @@ static void test_kernel_replacement(void)
  * Edge cases: NULL inputs
  * --------------------------------------------------------------- */
 
-static void test_null_inputs(void)
+static void test_null_inputs(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
 {
     g_test_message("Testing NULL input handling...");
 

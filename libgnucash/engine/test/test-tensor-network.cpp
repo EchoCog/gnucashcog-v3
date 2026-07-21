@@ -14,6 +14,7 @@
  ********************************************************************/
 
 #include <gtest/gtest.h>
+#include <cmath>
 #include "gnc-tensor-network.h"
 #include "Account.h"
 #include "Transaction.h"
@@ -94,10 +95,10 @@ TEST_F(TensorNetworkTest, TensorDataCreationTest)
     
     EXPECT_TRUE(tensor != nullptr);
     EXPECT_STREQ(tensor->name, "test_tensor");
-    EXPECT_EQ(tensor->n_dims, 2);
-    EXPECT_EQ(tensor->shape[0], 10);
-    EXPECT_EQ(tensor->shape[1], 5);
-    EXPECT_EQ(tensor->total_size, 50);
+    EXPECT_EQ(tensor->n_dims, static_cast<guint>(2));
+    EXPECT_EQ(tensor->shape[0], static_cast<gsize>(10));
+    EXPECT_EQ(tensor->shape[1], static_cast<gsize>(5));
+    EXPECT_EQ(tensor->total_size, static_cast<gsize>(50));
     EXPECT_TRUE(tensor->data != nullptr);
 
     gnc_tensor_data_destroy(tensor);
@@ -253,7 +254,7 @@ TEST_F(TensorNetworkTest, CogfluenceClusteringTest)
     
     // Fill with test financial data
     for (gsize i = 0; i < input_tensor->total_size; i++) {
-        input_tensor->data[i] = sinf((gfloat)i * 0.1f) * 100.0f;  // Simulate financial data
+        input_tensor->data[i] = std::sin((gfloat)i * 0.1f) * 100.0f;  // Simulate financial data
     }
 
     // Test Cogfluence clustering
@@ -365,7 +366,7 @@ TEST_F(TensorNetworkTest, CompleteWorkflowTest)
     
     // Fill with simulated transaction data
     for (gsize i = 0; i < financial_data->total_size; i++) {
-        financial_data->data[i] = (gfloat)i * 0.5f + sinf((gfloat)i * 0.1f) * 50.0f;
+        financial_data->data[i] = (gfloat)i * 0.5f + std::sin((gfloat)i * 0.1f) * 50.0f;
     }
 
     // Simulate distributed processing workflow
