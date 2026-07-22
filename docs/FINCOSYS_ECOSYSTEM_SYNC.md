@@ -78,16 +78,34 @@ independent Python `--feed` path, which is the one with the shortest path
 to actually consuming real exporter output today.
 
 ## What is still missing (follow-up)
+## CLI entry point
 
-`gnc_cognitive_import_fincosys_json()` itself is not yet reachable from any
-CLI, Scheme report, or menu action in a built gnucashcog-v3 — it is only
-called from the test suite. Wiring it up requires building and testing the
-full cognitive-accounting engine (already flagged in
-`COGNITIVE_ACCOUNTING.md` as having known gcc13/glib2.80 build breakage in
-unrelated pre-existing files), which this change does not attempt. Until
-that lands, the file this script produces is a staged artifact for
-manual/future import, not an automatically-applied one — no AtomSpace is
-modified by running it.
+`gnucash-cli --import-fincosys-sync <path> [--export-fincosys-sync <out>]`
+(see `Gnucash::import_fincosys_sync()` in `gnucash/gnucash-commands.cpp`,
+wired into `gnucash-cli.cpp`'s option parsing) initializes the cognitive
+AtomSpace, reads the sync document at `<path>`, and calls
+`gnc_cognitive_import_fincosys_json()` against it. If `--export-fincosys-sync`
+is also given, the (now-merged) AtomSpace is immediately re-exported via
+`gnc_cognitive_export_fincosys_json()` to that path — the cognitive
+AtomSpace has no on-disk persistence of its own (see
+`gnc-cognitive-accounting.h`), so a CLI invocation's imported atoms would
+otherwise vanish at process exit. This closes the previously-missing
+wiring the note below used to describe; the file
+`scripts/sync_fincosys_ecosystem.py` produces can now be applied directly:
+
+```bash
+gnucash-cli --import-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.json \
+    --export-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.merged.json
+```
+
+**Not yet attempted**: a full build/link of gnucashcog-v3's cognitive
+engine. `COGNITIVE_ACCOUNTING.md` already flags known gcc13/glib2.80 build
+breakage in unrelated pre-existing files on modern toolchains, and this
+change does not attempt to fix that. The new code reuses the exact same
+helpers, includes, and command-implementation pattern already used by the
+neighbouring `Gnucash::add_quotes()`/report commands in the same file, but
+has not been compiled end-to-end. Build and exercise it in an environment
+with a working cognitive-engine toolchain before relying on it.
 
 ## Why helix's contribution is not treated as financial data
 
