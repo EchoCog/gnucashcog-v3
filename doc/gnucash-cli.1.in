@@ -63,6 +63,22 @@ command takes the following options:
 Name of the report to run
 .IP --export-type=TYPE
 Specify export type
+.SH Fincosys Ecosystem Sync (activated with --import-fincosys-sync <path>)
+Imports a JSON document produced by fincosys-atomspace-builder (or
+gnucashcog-v3's own
+.B scripts/sync_fincosys_ecosystem.py)
+into the cognitive AtomSpace (Fincosys Ecosystem Sync Schema v1 --
+ConceptNode/PredicateNode/InheritanceLink/EvaluationLink/HierarchyLink
+atoms). See
+.I docs/FINCOSYS_ECOSYSTEM_SYNC.md
+in the source tree for background.
+.IP --import-fincosys-sync=PATH
+Path to the fincosys ecosystem sync JSON document to import.
+.IP --export-fincosys-sync=PATH
+Used with --import-fincosys-sync: after importing, re-export the
+cognitive AtomSpace's full atom/link set to this path. The cognitive
+AtomSpace has no on-disk persistence of its own, so this is how its
+post-import state survives past process exit.
 .SH General Options
 .IP --version
 Show

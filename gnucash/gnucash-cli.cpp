@@ -66,6 +66,9 @@ namespace Gnucash {
         boost::optional <std::string> m_report_name;
         boost::optional <std::string> m_export_type;
         boost::optional <std::string> m_output_file;
+
+        boost::optional <std::string> m_import_fincosys_sync;
+        boost::optional <std::string> m_export_fincosys_sync;
     };
 
 }
@@ -124,6 +127,23 @@ may be specified to describe some saved options.\n"
     m_opt_desc_display->add (report_options);
     m_opt_desc_all.add (report_options);
 
+    bpo::options_description fincosys_options(_("Fincosys Ecosystem Sync Options"));
+    fincosys_options.add_options()
+    ("import-fincosys-sync", bpo::value (&m_import_fincosys_sync),
+     _("Import a JSON document produced by fincosys-atomspace-builder (or "
+       "gnucashcog-v3's own scripts/sync_fincosys_ecosystem.py) into the "
+       "cognitive AtomSpace (Fincosys Ecosystem Sync Schema v1 -- "
+       "ConceptNode/PredicateNode/InheritanceLink/EvaluationLink/HierarchyLink "
+       "atoms). See docs/FINCOSYS_ECOSYSTEM_SYNC.md.\n"))
+    ("export-fincosys-sync", bpo::value (&m_export_fincosys_sync),
+     _("Used with --import-fincosys-sync: after importing, re-export the "
+       "cognitive AtomSpace's full atom/link set (in the same schema) to "
+       "this path. The cognitive AtomSpace has no on-disk persistence of "
+       "its own, so this is how its post-import state survives past "
+       "process exit, e.g. to hand a merged snapshot back to "
+       "fincosys-atomspace-builder or gnucashm.\n"));
+    m_opt_desc_display->add (fincosys_options);
+    m_opt_desc_all.add (fincosys_options);
 }
 
 int
@@ -216,6 +236,9 @@ Gnucash::GnucashCli::start ([[maybe_unused]] int argc, [[maybe_unused]] char **a
             return 1;
         }
     }
+
+    if (m_import_fincosys_sync)
+        return Gnucash::import_fincosys_sync (m_import_fincosys_sync, m_export_fincosys_sync);
 
     std::cerr << _("Missing command or option") << "\n\n"
               << *m_opt_desc_display.get() << std::endl;
