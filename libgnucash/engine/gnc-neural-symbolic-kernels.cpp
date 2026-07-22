@@ -510,7 +510,7 @@ gboolean gnc_atomspace_to_neural_tensor(GncAtomHandle atom_handle,
         return FALSE;
     }
     
-    g_debug("Converting AtomSpace atom %lu to neural tensor", atom_handle);
+    g_debug("Converting AtomSpace atom %" G_GUINT64_FORMAT " to neural tensor", atom_handle);
     
     // Simple encoding: use atom handle as seed for tensor values
     guint64 seed = atom_handle;
@@ -545,7 +545,7 @@ gboolean gnc_neural_tensor_to_atomspace(GncTensorData *tensor_input,
     
     *atom_handle = hash;
     
-    g_debug("Tensor to AtomSpace conversion completed, atom: %lu", *atom_handle);
+    g_debug("Tensor to AtomSpace conversion completed, atom: %" G_GUINT64_FORMAT, *atom_handle);
     return TRUE;
 }
 
@@ -861,7 +861,7 @@ gboolean gnc_neural_symbolic_kernel_benchmark(GncNeuralSymbolicKernel *kernel,
     gnc_tensor_data_destroy(input_b);
     gnc_tensor_data_destroy(output);
     
-    g_debug("Kernel benchmarking completed: %.2f ms, %ld ops, %.2f ops/sec",
+    g_debug("Kernel benchmarking completed: %.2f ms, %" G_GINT64_FORMAT " ops, %.2f ops/sec",
             metrics->computation_time_ms,
             metrics->operations_count,
             metrics->throughput_ops_per_sec);
