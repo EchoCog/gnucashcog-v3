@@ -24,19 +24,24 @@
 
 static void initialize_default_metrics(GncCognitiveMetrics *metrics);
 
+/* Empty fixture struct required by g_test_add (void is not valid) */
+typedef struct {
+    int placeholder;
+} MetaCognitiveFixture;
+
 /* Test fixture setup and teardown */
-static void setup(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void setup(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_assert_true(gnc_meta_cognitive_init());
 }
 
-static void teardown(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void teardown(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     gnc_meta_cognitive_shutdown();
 }
 
 /* Test meta-cognitive engine initialization */
-static void test_meta_cognitive_init(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_meta_cognitive_init(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing meta-cognitive engine initialization...");
     
@@ -51,7 +56,7 @@ static void test_meta_cognitive_init(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstp
 }
 
 /* Test self-analysis functionality */
-static void test_self_analysis(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_self_analysis(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing self-analysis capabilities...");
     
@@ -96,7 +101,7 @@ static void test_self_analysis(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer
 }
 
 /* Test metrics management */
-static void test_metrics_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_metrics_management(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing cognitive metrics management...");
     
@@ -132,7 +137,7 @@ static void test_metrics_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpo
 }
 
 /* Test evolutionary optimization */
-static void test_evolutionary_optimization(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_evolutionary_optimization(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing evolutionary optimization...");
     
@@ -173,7 +178,7 @@ static void test_evolutionary_optimization(G_GNUC_UNUSED void *, G_GNUC_UNUSED g
 }
 
 /* Test safety mechanisms */
-static void test_safety_mechanisms(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_safety_mechanisms(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing safety mechanisms...");
     
@@ -241,7 +246,7 @@ static void test_safety_mechanisms(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpoi
 }
 
 /* Test recursive improvement cycle */
-static void test_recursive_improvement(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_recursive_improvement(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing recursive improvement cycle...");
     
@@ -277,7 +282,7 @@ static void test_recursive_improvement(G_GNUC_UNUSED void *, G_GNUC_UNUSED gcons
 }
 
 /* Test introspection and pattern analysis */
-static void test_introspection(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_introspection(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing introspection and pattern analysis...");
     
@@ -309,7 +314,7 @@ static void test_introspection(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer
 }
 
 /* Test error handling and edge cases */
-static void test_error_handling(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_error_handling(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing error handling and edge cases...");
     
@@ -346,7 +351,7 @@ static void test_error_handling(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointe
 }
 
 /* Test concurrent operations */
-static void test_concurrent_operations(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_concurrent_operations(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing concurrent operations...");
     
@@ -373,7 +378,7 @@ static void test_concurrent_operations(G_GNUC_UNUSED void *, G_GNUC_UNUSED gcons
 }
 
 /* Test configuration management */
-static void test_config_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpointer)
+static void test_config_management(MetaCognitiveFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing configuration management...");
     
@@ -409,16 +414,16 @@ int main(int argc, char *argv[])
     g_test_init(&argc, &argv, NULL);
     
     // Add test cases
-    g_test_add("/meta-cognitive/init", void, NULL, setup, test_meta_cognitive_init, teardown);
-    g_test_add("/meta-cognitive/self-analysis", void, NULL, setup, test_self_analysis, teardown);
-    g_test_add("/meta-cognitive/metrics", void, NULL, setup, test_metrics_management, teardown);
-    g_test_add("/meta-cognitive/evolution", void, NULL, setup, test_evolutionary_optimization, teardown);
-    g_test_add("/meta-cognitive/safety", void, NULL, setup, test_safety_mechanisms, teardown);
-    g_test_add("/meta-cognitive/improvement", void, NULL, setup, test_recursive_improvement, teardown);
-    g_test_add("/meta-cognitive/introspection", void, NULL, setup, test_introspection, teardown);
-    g_test_add("/meta-cognitive/error-handling", void, NULL, setup, test_error_handling, teardown);
-    g_test_add("/meta-cognitive/concurrent", void, NULL, setup, test_concurrent_operations, teardown);
-    g_test_add("/meta-cognitive/config", void, NULL, setup, test_config_management, teardown);
+    g_test_add("/meta-cognitive/init", MetaCognitiveFixture, NULL, setup, test_meta_cognitive_init, teardown);
+    g_test_add("/meta-cognitive/self-analysis", MetaCognitiveFixture, NULL, setup, test_self_analysis, teardown);
+    g_test_add("/meta-cognitive/metrics", MetaCognitiveFixture, NULL, setup, test_metrics_management, teardown);
+    g_test_add("/meta-cognitive/evolution", MetaCognitiveFixture, NULL, setup, test_evolutionary_optimization, teardown);
+    g_test_add("/meta-cognitive/safety", MetaCognitiveFixture, NULL, setup, test_safety_mechanisms, teardown);
+    g_test_add("/meta-cognitive/improvement", MetaCognitiveFixture, NULL, setup, test_recursive_improvement, teardown);
+    g_test_add("/meta-cognitive/introspection", MetaCognitiveFixture, NULL, setup, test_introspection, teardown);
+    g_test_add("/meta-cognitive/error-handling", MetaCognitiveFixture, NULL, setup, test_error_handling, teardown);
+    g_test_add("/meta-cognitive/concurrent", MetaCognitiveFixture, NULL, setup, test_concurrent_operations, teardown);
+    g_test_add("/meta-cognitive/config", MetaCognitiveFixture, NULL, setup, test_config_management, teardown);
     
     return g_test_run();
 }
