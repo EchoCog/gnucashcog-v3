@@ -227,6 +227,14 @@ gnc_add_test(test-tensor-network test-tensor-network.cpp
 gnc_add_test(test-neural-symbolic-kernels test-neural-symbolic-kernels.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Phase 4: Cognitive API test (requires JSON-GLib)
+if (HAVE_JSON_GLIB)
+set(gtest_cognitive_api_LIBS ${gtest_old_engine_LIBS} ${JSON_GLIB_LIBRARIES})
+set(gtest_cognitive_api_INCLUDES ${gtest_engine_INCLUDES} ${JSON_GLIB_INCLUDE_DIRS})
+gnc_add_test(test-cognitive-api test-cognitive-api.cpp
+  gtest_cognitive_api_INCLUDES gtest_cognitive_api_LIBS)
+endif()
+
 # Meta-cognitive test
 gnc_add_test(test-meta-cognitive test-meta-cognitive.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
@@ -260,6 +268,7 @@ set(test_engine_SOURCES_DIST
         test-business.c
         test-cognitive-accounting.cpp
         test-cognitive-primitives.cpp
+        test-cognitive-api.cpp
         test-ko6ml-translation.cpp
         test-tensor-network.cpp
         test-neural-symbolic-kernels.cpp

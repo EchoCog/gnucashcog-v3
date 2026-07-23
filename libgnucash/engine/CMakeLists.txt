@@ -303,6 +303,7 @@ target_compile_definitions (gnc-engine PRIVATE -DG_LOG_DOMAIN=\"gnc.engine\")
 target_include_directories (gnc-engine
     PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR} # for iso-4217-currencies.c
+        $<$<BOOL:${HAVE_JSON_GLIB}>:${JSON_GLIB_INCLUDE_DIRS}>  # for gnc-cognitive-api.c
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_BINARY_DIR}/common # for config.h
