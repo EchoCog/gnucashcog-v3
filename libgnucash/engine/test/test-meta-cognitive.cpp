@@ -102,9 +102,9 @@ static void test_metrics_management(G_GNUC_UNUSED void *, G_GNUC_UNUSED gconstpo
     
     GncCognitiveMetrics metrics;
     
-    // Test getting default metrics
-    g_assert_false(gnc_meta_cognitive_get_metrics(GNC_METACOG_PROCESS_VALIDATION, &metrics));
-    // Should still populate with defaults
+    // Test getting default metrics - should return TRUE since init populates defaults
+    g_assert_true(gnc_meta_cognitive_get_metrics(GNC_METACOG_PROCESS_VALIDATION, &metrics));
+    // Should have valid default values
     g_assert_cmpfloat(metrics.accuracy, >, 0.0);
     g_assert_cmpfloat(metrics.efficiency, >, 0.0);
     
