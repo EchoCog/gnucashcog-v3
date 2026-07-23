@@ -98,14 +98,28 @@ gnucash-cli --import-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.
     --export-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.merged.json
 ```
 
-**Not yet attempted**: a full build/link of gnucashcog-v3's cognitive
-engine. `COGNITIVE_ACCOUNTING.md` already flags known gcc13/glib2.80 build
-breakage in unrelated pre-existing files on modern toolchains, and this
-change does not attempt to fix that. The new code reuses the exact same
-helpers, includes, and command-implementation pattern already used by the
-neighbouring `Gnucash::add_quotes()`/report commands in the same file, but
-has not been compiled end-to-end. Build and exercise it in an environment
-with a working cognitive-engine toolchain before relying on it.
+**Verified end-to-end (2026-07-23)**: a full CMake build of the `gnc-engine`,
+`test-fincosys-bridge`, and `gnucash-cli` targets succeeded with zero source
+changes needed (`gnc-fincosys-bridge.cpp/.h`, `gnc-cognitive-accounting.cpp/.h`,
+`gnucash-commands.cpp`, and `gnucash-cli.cpp` all compiled and linked cleanly
+against current headers). `test-fincosys-bridge` passed all 15 cases (export
+schema header, ConceptNode/InheritanceLink/HierarchyLink/EvaluationLink
+export, truth-value round-trip, invalid/unsupported-atom handling, full
+round-trip preservation). The real CLI round-trip was also exercised:
+
+```bash
+./bin/gnucash-cli --import-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.json \
+    --export-fincosys-sync /tmp/roundtrip.json
+```
+
+imported 99 atoms from this repo's own generated sync snapshot into the
+cognitive AtomSpace and re-exported an identical 99 atoms / 0 links with no
+data loss. Building required `-DWITH_AQBANKING=OFF` plus the `libofx-dev`/
+`libdbi-dev` system packages (unrelated optional GnuCash backends, not part
+of this bridge) — with those, the gcc13/glib2.80 breakage
+`COGNITIVE_ACCOUNTING.md` flags in *other* subsystems was never triggered by
+this build path (`gnc-engine`/`gnucash-cli`); it may still affect subsystems
+those targets don't pull in.
 
 ## Why helix's contribution is not treated as financial data
 
