@@ -448,16 +448,20 @@ gnc_cognitive_load_fincosys_atoms (const gchar *json, GncCognitiveFincosysLoadRe
                 handle_by_doc_id[doc_id] = handle;
                 ++local_result.atoms_created;
 
+                /* Start from a clean slate for this (freshly created)
+                 * handle -- guards against a stale entry from an earlier
+                 * load in the same process having reused the same handle
+                 * number (the simulated AtomSpace's handle counter resets
+                 * across gnc_cognitive_accounting_shutdown()/_init()
+                 * cycles). This must run unconditionally, not only when
+                 * this entry has an "attributes" object: an entry with no
+                 * attributes must still clear out any stale attributes a
+                 * prior load left behind under the same reused handle. */
+                g_loader_atom_attributes.erase (handle);
+
                 const JsonValue *attrs = atom_val.find_object ("attributes");
                 if (attrs != nullptr)
                 {
-                    /* Start from a clean slate for this (freshly created)
-                     * handle -- guards against a stale entry from an
-                     * earlier load in the same process having reused the
-                     * same handle number (the simulated AtomSpace's handle
-                     * counter resets across
-                     * gnc_cognitive_accounting_shutdown()/_init() cycles). */
-                    g_loader_atom_attributes.erase (handle);
                     for (const auto &kv : attrs->object_items ())
                     {
                         /* Attribute values in this schema are plain

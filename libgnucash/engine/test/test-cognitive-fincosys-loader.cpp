@@ -350,3 +350,67 @@ TEST_F(CognitiveFincosysLoaderTest, AttributeGetterReturnsNullForUnknownHandleOr
     EXPECT_STREQ("RST", gnc_cognitive_fincosys_loader_get_atom_attribute(rst_handle, "entity_code"));
     EXPECT_EQ(nullptr, gnc_cognitive_fincosys_loader_get_atom_attribute(rst_handle, "no_such_key"));
 }
+
+TEST_F(CognitiveFincosysLoaderTest, StaleAttributesDoNotSurviveHandleReuseAcrossReinit)
+{
+    /* GncCognitiveAtomSpace's handle counter (next_handle) is reset to a
+     * fixed starting value by gnc_cognitive_accounting_init(), so the
+     * first concept node created after a shutdown()/init() cycle always
+     * gets the same handle number the first concept node of the *previous*
+     * cycle got. A loader that only clears the attribute side-table when
+     * the new entry itself has an "attributes" object would let that
+     * reused handle answer queries with the previous cycle's stale
+     * attributes -- this reproduces exactly that scenario. */
+    const gchar* json_with_attrs = R"JSON(
+    {"atoms": [{"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "entity:RST", "label": "RST",
+                "attributes": {"entity_code": "RST"}}]}
+    )JSON";
+    GncCognitiveFincosysLoadResult first_result;
+    ASSERT_TRUE(gnc_cognitive_load_fincosys_atoms(json_with_attrs, &first_result));
+    ASSERT_EQ(1U, first_result.atoms_created);
+
+    GncAtomHandle first_handle = 0;
+    gnc_atomspace_foreach_atom(
+        [](GncAtomHandle handle, GncAtomType type, const char* name, gdouble, gdouble,
+           gpointer user_data)
+        {
+            if (type == GNC_ATOM_CONCEPT_NODE && name != nullptr &&
+                std::string(name) == "RST")
+                *static_cast<GncAtomHandle*>(user_data) = handle;
+        },
+        &first_handle);
+    ASSERT_NE(0U, first_handle);
+    ASSERT_STREQ("RST", gnc_cognitive_fincosys_loader_get_atom_attribute(first_handle, "entity_code"));
+
+    /* Cycle the AtomSpace -- this is what resets the handle counter. */
+    gnc_cognitive_accounting_shutdown();
+    gnc_cognitive_accounting_init();
+
+    const gchar* json_without_attrs = R"JSON(
+    {"atoms": [{"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "entity:RWD", "label": "RWD"}]}
+    )JSON";
+    GncCognitiveFincosysLoadResult second_result;
+    ASSERT_TRUE(gnc_cognitive_load_fincosys_atoms(json_without_attrs, &second_result));
+    ASSERT_EQ(1U, second_result.atoms_created);
+
+    GncAtomHandle second_handle = 0;
+    gnc_atomspace_foreach_atom(
+        [](GncAtomHandle handle, GncAtomType type, const char* name, gdouble, gdouble,
+           gpointer user_data)
+        {
+            if (type == GNC_ATOM_CONCEPT_NODE && name != nullptr &&
+                std::string(name) == "RWD")
+                *static_cast<GncAtomHandle*>(user_data) = handle;
+        },
+        &second_handle);
+    ASSERT_NE(0U, second_handle);
+
+    /* The reused handle must not answer with the previous cycle's
+     * "entity_code": "RST" attribute -- this entry had no attributes at
+     * all. */
+    EXPECT_EQ(second_handle, first_handle)
+        << "test assumption (handle counter reset to the same starting "
+           "value across a shutdown/init cycle) no longer holds -- this "
+           "test needs revisiting, not just a pass/fail flip";
+    EXPECT_EQ(nullptr, gnc_cognitive_fincosys_loader_get_atom_attribute(second_handle, "entity_code"));
+}
