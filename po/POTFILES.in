@@ -638,6 +638,7 @@ libgnucash/engine/gncBusiness.c
 libgnucash/engine/gnc-cognitive-accounting.cpp
 libgnucash/engine/gnc-cognitive-api.c
 libgnucash/engine/gnc-cognitive-comms.cpp
+libgnucash/engine/gnc-cognitive-fincosys-loader.cpp
 libgnucash/engine/gnc-cognitive-graphql.c
 libgnucash/engine/gnc-cognitive-primitives.cpp
 libgnucash/engine/gnc-cognitive-scheme.cpp

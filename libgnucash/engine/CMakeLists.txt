@@ -69,6 +69,7 @@ set (engine_HEADERS
   gnc-cognitive-graphql.h
   gnc-cognitive-json-util.h
   gnc-fincosys-bridge.h
+  gnc-cognitive-fincosys-loader.h
   gnc-virtual-device.h
   gnc-financial-device-driver.h
   gnc-commodity.h
@@ -186,6 +187,7 @@ set (engine_SOURCES
   gnc-cognitive-api.c
   gnc-cognitive-graphql.c
   gnc-fincosys-bridge.cpp
+  gnc-cognitive-fincosys-loader.cpp
   gnc-virtual-device.cpp
   gnc-financial-device-driver.cpp
   gnc-commodity.cpp
