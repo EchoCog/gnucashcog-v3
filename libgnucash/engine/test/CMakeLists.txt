@@ -251,6 +251,10 @@ gnc_add_test(test-phase6-comprehensive test-phase6-comprehensive.cpp
 gnc_add_test(test-fincosys-bridge test-fincosys-bridge.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# cognitive_atoms.json loader test
+gnc_add_test(test-cognitive-fincosys-loader test-cognitive-fincosys-loader.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 set(test_engine_SOURCES_DIST
         gtest-gnc-euro.cpp
         gtest-gnc-int128.cpp
@@ -276,6 +280,7 @@ set(test_engine_SOURCES_DIST
         test-ontogenesis-bridge.cpp
         test-phase6-comprehensive.cpp
         test-fincosys-bridge.cpp
+        test-cognitive-fincosys-loader.cpp
         test-commodities.cpp
         test-customer.c
         test-employee.c
