@@ -180,7 +180,7 @@ GncUnifiedCognitiveSystem* gnc_unified_cognitive_system_new(void) {
         return nullptr;
     }
     
-    auto system = g_new0(GncUnifiedCognitiveSystem, 1);
+    auto system = new GncUnifiedCognitiveSystem{};
     
     // Initialize basic system state
     system->initialized = TRUE;
@@ -234,30 +234,32 @@ GncUnifiedCognitiveSystem* gnc_unified_cognitive_system_new(void) {
  */
 void gnc_unified_cognitive_system_destroy(GncUnifiedCognitiveSystem* system) {
     if (!system) return;
-    
-    std::lock_guard<std::mutex> lock(system->system_mutex);
-    
-    // Free hash tables
-    if (system->performance_metrics) {
-        g_hash_table_destroy(system->performance_metrics);
+
+    {
+        std::lock_guard<std::mutex> lock(system->system_mutex);
+
+        // Free hash tables
+        if (system->performance_metrics) {
+            g_hash_table_destroy(system->performance_metrics);
+        }
+        if (system->integration_scores) {
+            g_hash_table_destroy(system->integration_scores);
+        }
+        if (system->test_results) {
+            g_hash_table_destroy(system->test_results);
+        }
+        if (system->documentation_status) {
+            g_hash_table_destroy(system->documentation_status);
+        }
+        if (system->validation_history) {
+            g_hash_table_destroy(system->validation_history);
+        }
+
+        // Free emergent patterns list
+        g_list_free_full(system->emergent_patterns, g_free);
     }
-    if (system->integration_scores) {
-        g_hash_table_destroy(system->integration_scores);
-    }
-    if (system->test_results) {
-        g_hash_table_destroy(system->test_results);
-    }
-    if (system->documentation_status) {
-        g_hash_table_destroy(system->documentation_status);
-    }
-    if (system->validation_history) {
-        g_hash_table_destroy(system->validation_history);
-    }
-    
-    // Free emergent patterns list
-    g_list_free_full(system->emergent_patterns, g_free);
-    
-    g_free(system);
+
+    delete system;
 }
 
 //=============================================================================
@@ -332,6 +334,11 @@ static gdouble calculate_component_coherence(GncUnifiedCognitiveSystem* system,
     return std::min(1.0, base_score + integration_bonus + performance_bonus);
 }
 
+static gdouble validate_cross_phase_integration_unlocked(
+    GncUnifiedCognitiveSystem* system);
+static GHashTable* detect_emergent_patterns_unlocked(
+    GncUnifiedCognitiveSystem* system, gdouble complexity_threshold);
+
 /**
  * Perform comprehensive system coherence validation
  */
@@ -388,13 +395,15 @@ GncUnifiedValidationResult* gnc_validate_system_coherence(
     result->overall_coherence_score = active_components > 0 ? total_coherence / active_components : 0.0;
     
     // Calculate phase integration score
-    result->phase_integration_score = gnc_validate_cross_phase_integration(system, GNC_COGNITIVE_COMPONENT_ALL);
+    result->phase_integration_score = validate_cross_phase_integration_unlocked(
+        system);
     
     // Estimate performance efficiency (placeholder implementation)
     result->performance_efficiency = std::min(1.0, result->overall_coherence_score * 0.9 + 0.1);
     
     // Detect emergent patterns
-    GHashTable* patterns = gnc_detect_emergent_patterns(system, params->emergent_complexity);
+    GHashTable* patterns = detect_emergent_patterns_unlocked(
+        system, params->emergent_complexity);
     if (patterns) {
         result->emergent_patterns_detected = g_hash_table_size(patterns);
         
@@ -464,9 +473,13 @@ GncUnifiedValidationResult* gnc_validate_system_coherence(
  */
 gdouble gnc_validate_cross_phase_integration(GncUnifiedCognitiveSystem* system, guint phase_mask) {
     if (!system) return 0.0;
-    
+
     std::lock_guard<std::mutex> lock(system->system_mutex);
-    
+    return validate_cross_phase_integration_unlocked(system);
+}
+
+static gdouble validate_cross_phase_integration_unlocked(
+    GncUnifiedCognitiveSystem* system) {
     gdouble integration_score = 0.0;
     gint integration_tests = 0;
     
@@ -506,9 +519,13 @@ gdouble gnc_validate_cross_phase_integration(GncUnifiedCognitiveSystem* system, 
  */
 GHashTable* gnc_detect_emergent_patterns(GncUnifiedCognitiveSystem* system, gdouble complexity_threshold) {
     if (!system) return nullptr;
-    
+
     std::lock_guard<std::mutex> lock(system->system_mutex);
-    
+    return detect_emergent_patterns_unlocked(system, complexity_threshold);
+}
+
+static GHashTable* detect_emergent_patterns_unlocked(
+    GncUnifiedCognitiveSystem* system, gdouble complexity_threshold) {
     auto patterns = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     
     // Simulate emergent behavior detection (in real implementation, this would analyze actual system behavior)
