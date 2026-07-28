@@ -33,57 +33,70 @@ jobs:
 
       # Sibling repos are private and cross-repo -- this requires a
       # personal access token with read access to them, stored as
-      # ECOSYSTEM_SYNC_TOKEN. The job fails fast if it isn't configured
-      # rather than silently skipping sources.
+      # ECOSYSTEM_SYNC_TOKEN. When the secret is absent the remaining steps
+      # are skipped and the job exits successfully with a warning, rather than
+      # failing the run. This prevents spurious CI failures for forks or
+      # installations that have not yet configured the token.
       - name: Validate ECOSYSTEM_SYNC_TOKEN
+        id: check-token
         env:
           TOKEN: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "::error title=Missing Secret::ECOSYSTEM_SYNC_TOKEN is not configured." \
+            echo "::warning title=Missing Secret::ECOSYSTEM_SYNC_TOKEN is not configured." \
               "Add a PAT with read access to the sibling repos in" \
-              "Settings → Secrets and variables → Actions → New repository secret."
-            exit 1
+              "Settings → Secrets and variables → Actions → New repository secret." \
+              "Sync skipped."
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "token_present=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout fincosys-atomspace-builder
+        if: steps.check-token.outputs.token_present == 'true'
         uses: actions/checkout@v4
         with:
           repository: RegimA-Zone/fincosys-atomspace-builder
-          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || github.token }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
           path: fincosys-atomspace-builder
 
       - name: Checkout fincosys
+        if: steps.check-token.outputs.token_present == 'true'
         uses: actions/checkout@v4
         with:
           repository: cogpy/fincosys
-          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || github.token }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
           path: fincosys
 
       - name: Checkout helix
+        if: steps.check-token.outputs.token_present == 'true'
         uses: actions/checkout@v4
         with:
           repository: fincosys/helix
-          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || github.token }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
           path: helix
         continue-on-error: true # helix holds no financial records; optional
 
       - name: Checkout revstream1
+        if: steps.check-token.outputs.token_present == 'true'
         uses: actions/checkout@v4
         with:
           repository: cogpy/revstream1
-          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || github.token }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
           path: revstream1
         continue-on-error: true # only needed for case-evidence enrichment
 
-      - uses: actions/setup-python@v5
+      - if: steps.check-token.outputs.token_present == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install fincosys-atomspace-builder
+        if: steps.check-token.outputs.token_present == 'true'
         run: pip install -e ./fincosys-atomspace-builder
 
       - name: Run sync (dry run unless write=true)
+        if: steps.check-token.outputs.token_present == 'true'
         working-directory: gnucashcog-v3
         run: |
           ARGS=(
@@ -102,7 +115,7 @@ jobs:
           python scripts/sync_fincosys_ecosystem.py "${ARGS[@]}"
 
       - name: Open PR with synced data
-        if: ${{ inputs.write == 'true' }}
+        if: ${{ steps.check-token.outputs.token_present == 'true' && inputs.write == 'true' }}
         uses: peter-evans/create-pull-request@v6
         with:
           path: gnucashcog-v3
