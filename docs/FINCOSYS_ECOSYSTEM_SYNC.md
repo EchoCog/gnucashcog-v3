@@ -50,6 +50,17 @@ python scripts/sync_fincosys_ecosystem.py \
     --write
 ```
 
+**Update (2026-08-03)**: the `gnucash_ecosystem` preset now also enables
+`include_transaction_index`, which loads fincosys's canonical, balance-
+hash-verified `data/transaction_index.json` ledger (22K+ reconciled
+transactions across all entities) via `TransactionIndexLoader` — additive
+alongside the per-statement `include_transactions` extract loader already
+in use, with a disjoint node-ID namespace (`TXI_<txid>` vs.
+`TX_<account>_<stmt>_<index>`), so both run together. No flag change is
+needed on this side to pick it up; it flows through automatically via
+`gnucash_ecosystem_config()`, giving `gnc_cognitive_import_fincosys_json()`
+access to the reconciled ledger's TRANSACTION_NODE atoms once merged.
+
 ## Cross-repo contract verification (this change)
 
 The Python-bindings sync tool at
@@ -77,7 +88,6 @@ result. This does not change the C++-bridge status below — it verifies the
 independent Python `--feed` path, which is the one with the shortest path
 to actually consuming real exporter output today.
 
-## What is still missing (follow-up)
 ## CLI entry point
 
 `gnucash-cli --import-fincosys-sync <path> [--export-fincosys-sync <out>]`
