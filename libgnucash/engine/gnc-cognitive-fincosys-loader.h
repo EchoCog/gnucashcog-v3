@@ -103,6 +103,23 @@ typedef struct
  *    skipped with a g_warning(); an entry with zero resolved participants
  *    creates no links at all.
  *
+ *  On success, also broadcasts a `GNC_MSG_DATA_UPDATE` cognitive message
+ *  (see gnc-cognitive-comms.h) from `GNC_MODULE_ATOMSPACE` to every other
+ *  active module (PLN, ECAN, MOSES, URE, Scheme -- all registered by
+ *  gnc_cognitive_accounting_init(), a prerequisite for this function to
+ *  reach this point at all), so a module can react to newly synced
+ *  fincosys atoms via gnc_cognitive_receive_messages() instead of needing
+ *  to poll or re-read `cognitive_atoms.json` itself. The message's `data`
+ *  is a `const GncCognitiveFincosysLoadResult *` -- the same counts this
+ *  call's own @a result out-parameter carries -- pointing at storage owned
+ *  by this loader (valid only until the *next* call to this function; a
+ *  module that hasn't drained its queue by then sees the newer call's
+ *  counts instead). This is a best-effort notification, not a delivery
+ *  guarantee: if the comm hub isn't initialized (which cannot happen on
+ *  this path in normal use, since the AtomSpace-initialized check above
+ *  already implies gnc_cognitive_accounting_init() ran, which always calls
+ *  gnc_cognitive_comms_init()), the broadcast silently no-ops.
+ *
  *  @param json The JSON document text. Must not be NULL.
  *  @param result Optional out-parameter populated with per-kind
  *         created/skipped counts. May be NULL if the caller doesn't need

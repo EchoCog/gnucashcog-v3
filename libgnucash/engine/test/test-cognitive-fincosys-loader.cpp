@@ -20,6 +20,7 @@
 #include <string>
 
 #include "gnc-cognitive-accounting.h"
+#include "gnc-cognitive-comms.h"
 #include "gnc-cognitive-fincosys-loader.h"
 #include "qof.h"
 
@@ -413,4 +414,88 @@ TEST_F(CognitiveFincosysLoaderTest, StaleAttributesDoNotSurviveHandleReuseAcross
            "value across a shutdown/init cycle) no longer holds -- this "
            "test needs revisiting, not just a pass/fail flip";
     EXPECT_EQ(nullptr, gnc_cognitive_fincosys_loader_get_atom_attribute(second_handle, "entity_code"));
+}
+
+TEST_F(CognitiveFincosysLoaderTest, BroadcastsDataUpdateMessageToOtherModules)
+{
+    /* SetUp()'s gnc_cognitive_accounting_init() already registered several
+     * modules, each of which broadcasts a GNC_MSG_EMERGENCE_ACTIVATION to
+     * every already-active module (see gnc_cognitive_trigger_emergence() in
+     * gnc-cognitive-comms.cpp) -- drain that unrelated traffic first so
+     * this test only observes what gnc_cognitive_load_fincosys_atoms()
+     * itself produces. */
+    gnc_cognitive_receive_messages(GNC_MODULE_ATOMSPACE);
+    gnc_cognitive_receive_messages(GNC_MODULE_PLN);
+    gnc_cognitive_receive_messages(GNC_MODULE_ECAN);
+
+    const gchar* json = R"JSON(
+    {"atoms": [{"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "entity:RST", "label": "RST"}]}
+    )JSON";
+
+    GncCognitiveFincosysLoadResult result;
+    ASSERT_TRUE(gnc_cognitive_load_fincosys_atoms(json, &result));
+    ASSERT_EQ(1U, result.atoms_created);
+
+    auto pln_messages = gnc_cognitive_receive_messages(GNC_MODULE_PLN);
+    ASSERT_EQ(1U, pln_messages.size());
+    EXPECT_EQ(GNC_MODULE_ATOMSPACE, pln_messages[0].from_module);
+    EXPECT_EQ(GNC_MSG_DATA_UPDATE, pln_messages[0].message_type);
+    ASSERT_NE(nullptr, pln_messages[0].data);
+    const auto* pln_result =
+        static_cast<const GncCognitiveFincosysLoadResult*>(pln_messages[0].data);
+    EXPECT_EQ(1U, pln_result->atoms_created);
+
+    /* A real broadcast, not a point-to-point send: a second, independent
+     * module must also have received it. */
+    auto ecan_messages = gnc_cognitive_receive_messages(GNC_MODULE_ECAN);
+    ASSERT_EQ(1U, ecan_messages.size());
+    EXPECT_EQ(GNC_MSG_DATA_UPDATE, ecan_messages[0].message_type);
+
+    /* gnc_cognitive_broadcast_message() excludes the sender itself. */
+    auto atomspace_messages = gnc_cognitive_receive_messages(GNC_MODULE_ATOMSPACE);
+    for (const auto& msg : atomspace_messages)
+        EXPECT_NE(GNC_MSG_DATA_UPDATE, msg.message_type)
+            << "GNC_MODULE_ATOMSPACE should not receive its own broadcast";
+}
+
+TEST_F(CognitiveFincosysLoaderTest, BroadcastCarriesLatestCountsAcrossTwoCalls)
+{
+    gnc_cognitive_receive_messages(GNC_MODULE_PLN);
+
+    const gchar* first_json = R"JSON(
+    {"atoms": [{"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "entity:RST", "label": "RST"}]}
+    )JSON";
+    GncCognitiveFincosysLoadResult first_result;
+    ASSERT_TRUE(gnc_cognitive_load_fincosys_atoms(first_json, &first_result));
+
+    /* Deliberately don't drain PLN's queue here -- this exercises the
+     * documented tradeoff (see gnc-cognitive-fincosys-loader.h) that a
+     * module which falls behind sees only the most recent call's counts,
+     * not a queue of every call's counts. */
+    const gchar* second_json = R"JSON(
+    {
+      "atoms": [
+        {"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "entity:RWD", "label": "RWD"},
+        {"atom_type": "GNC_ATOM_CONCEPT_NODE", "id": "account:BANK-111", "label": "BANK-111"}
+      ]
+    }
+    )JSON";
+    GncCognitiveFincosysLoadResult second_result;
+    ASSERT_TRUE(gnc_cognitive_load_fincosys_atoms(second_json, &second_result));
+    ASSERT_EQ(2U, second_result.atoms_created);
+
+    auto pln_messages = gnc_cognitive_receive_messages(GNC_MODULE_PLN);
+    ASSERT_EQ(2U, pln_messages.size())
+        << "both broadcasts should still be queued as separate messages";
+    const auto* first_seen =
+        static_cast<const GncCognitiveFincosysLoadResult*>(pln_messages[0].data);
+    const auto* second_seen =
+        static_cast<const GncCognitiveFincosysLoadResult*>(pln_messages[1].data);
+    /* Both message structs point at the loader's single shared static
+     * result slot, so by the time this test reads them, both now report
+     * the second call's counts -- that aliasing (not a queue of distinct
+     * snapshots) is exactly the tradeoff being verified here. */
+    EXPECT_EQ(2U, first_seen->atoms_created);
+    EXPECT_EQ(2U, second_seen->atoms_created);
+    EXPECT_EQ(first_seen, second_seen);
 }

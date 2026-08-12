@@ -211,10 +211,67 @@ sections):
   the task that produced this loader) and is a natural candidate for a
   future incremental change.
 
-- [ ] Route that loader's output through `gnc_cognitive_send_message()` /
+- [x] Route that loader's output through `gnc_cognitive_send_message()` /
       `gnc_cognitive_broadcast_message()` so other cognitive modules
       (`GNC_MODULE_PLN`, `GNC_MODULE_ECAN`, ...) can react to newly synced
       fincosys atoms, rather than requiring a manual file read.
+
+  **Done (2026-08-12).** `gnc_cognitive_load_fincosys_atoms()` now ends
+  with a real `gnc_cognitive_broadcast_message(GNC_MODULE_ATOMSPACE,
+  GNC_MSG_DATA_UPDATE, &result)` call on every successful load (the
+  `gnc-cognitive-comms.h` API this item names -- checked via `grep`, both
+  `gnc_cognitive_send_message()` and `gnc_cognitive_broadcast_message()`
+  are real, unlike the `gnc_atomspace_set_atom_attribute()` case earlier in
+  this document). No new initialization was needed: `gnc_cognitive_
+  accounting_init()` already calls `gnc_cognitive_comms_init()` and
+  registers `GNC_MODULE_PLN`/`ECAN`/`MOSES`/`URE`/`SCHEME` as active
+  *before* this loader can ever run (it requires the AtomSpace to already
+  be initialized), so the broadcast reaches all of them with no extra
+  wiring in this loader.
+
+  The `data` payload is a `const GncCognitiveFincosysLoadResult *` -- the
+  same per-kind counts the caller's own `result` out-parameter gets --
+  pointing at a static slot owned by this loader (`g_last_broadcast_
+  result`), not a pointer into the caller's stack frame, since a module
+  drains its queue via `gnc_cognitive_receive_messages()` at a time this
+  function has no control over. Documented tradeoff, not a hidden bug: a
+  module that hasn't drained its queue before the *next*
+  `gnc_cognitive_load_fincosys_atoms()` call will see that later call's
+  counts on both messages, not a snapshot of its own. A new test
+  (`BroadcastCarriesLatestCountsAcrossTwoCalls`) asserts exactly this
+  aliasing rather than leaving it as an undocumented surprise.
+
+  **Verified, not just built**: two new cases added to
+  `test-cognitive-fincosys-loader.cpp`
+  (`BroadcastsDataUpdateMessageToOtherModules`,
+  `BroadcastCarriesLatestCountsAcrossTwoCalls`), run against a from-source
+  build in this environment (same `cmake -DWITH_AQBANKING=OFF -DWITH_OFX=OFF
+  -DWITH_SQL=OFF -DWITH_GNUCASH=OFF` configuration documented elsewhere in
+  this repo, with the previously-missing `libxml2-dev`/`libxslt1-dev`/
+  `gettext`/`swig`/`guile-3.0-dev`/boost/`libgtest-dev`/`libgmock-dev`/
+  `libsecret-1-dev`/`libdbi-dev` packages installed): **18/18 passing**
+  (was 16, both new cases pass), including confirming a real broadcast
+  (both `GNC_MODULE_PLN` and `GNC_MODULE_ECAN` independently receive the
+  message) and that `GNC_MODULE_ATOMSPACE` -- the sender -- does not
+  receive its own broadcast, per `gnc_cognitive_broadcast_message()`'s own
+  implementation. `test-fincosys-bridge` (the other, pre-existing bridge's
+  suite) still passes 15/15 unchanged -- no regression. One unrelated,
+  pre-existing crash reproduced during this verification pass,
+  `test-cognitive-accounting`'s `PLNDoubleEntryValidation`/
+  `PLNUnbalancedTransaction` cases (SIGTRAP, exit 133) -- confirms the
+  `PLNDoubleEntryValidation` crash this document already noted after the
+  2026-07-25 XML-backend change, and shows it is not isolated to that one
+  case. `gnc-cognitive-accounting.{h,cpp}` are unmodified by this change;
+  out of scope here, not investigated further.
+
+  Not done in this pass, left for a future increment: unifying this event
+  with the export path (`gnc_cognitive_export_fincosys_json()` still only
+  reads `gnc-fincosys-bridge.cpp`'s separate attribute table, unrelated to
+  this broadcast), and giving a receiving module anything beyond raw counts
+  to act on (e.g. the actual atom handles created) -- the message only
+  carries the same summary counts the synchronous caller already gets back
+  directly, not a way to enumerate what's new without re-scanning the
+  AtomSpace.
 - [ ] Decide whether `balanced_transaction` evaluations should also drive
       `gnc_pln_validate_double_entry()` / `gnc_pln_validate_n_entry()`
       (real PLN-style validation) instead of (or in addition to) the
