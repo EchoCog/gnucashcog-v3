@@ -19,6 +19,7 @@
 #include "Account.h"
 #include "Transaction.h"
 #include "qofbook.h"
+#include "gnc-commodity.h"
 #include "test-engine-stuff.h"
 
 class TensorNetworkTest : public ::testing::Test
@@ -28,6 +29,13 @@ protected:
     {
         gnc_tensor_network_init();
         book = qof_book_new();
+        auto *commodity_table = gnc_commodity_table_get_table(book);
+        default_currency = gnc_commodity_table_lookup(commodity_table, GNC_COMMODITY_NS_CURRENCY, "USD");
+        if (!default_currency)
+        {
+            default_currency = gnc_commodity_new(book, "US Dollar", GNC_COMMODITY_NS_CURRENCY, "USD", "840", 100);
+            gnc_commodity_table_insert(commodity_table, default_currency);
+        }
         network = gnc_tensor_network_create();
     }
 
@@ -44,6 +52,7 @@ protected:
 
     QofBook* book;
     GncTensorNetwork* network;
+    gnc_commodity* default_currency;
 };
 
 TEST_F(TensorNetworkTest, NetworkInitializationTest)
@@ -113,14 +122,18 @@ TEST_F(TensorNetworkTest, TransactionEncodingTest)
     
     xaccAccountSetName(assets, "Assets");
     xaccAccountSetType(assets, ACCT_TYPE_ASSET);
+    xaccAccountSetCommodity(assets, default_currency);
     gnc_account_append_child(root, assets);
     
     xaccAccountSetName(checking, "Checking");
     xaccAccountSetType(checking, ACCT_TYPE_BANK);
+    xaccAccountSetCommodity(checking, default_currency);
     gnc_account_append_child(assets, checking);
 
     // Create transaction
     Transaction* trans = xaccMallocTransaction(book);
+    xaccTransSetCurrency(trans, default_currency);
+    xaccTransBeginEdit(trans);
     xaccTransSetDatePostedSecs(trans, gnc_time(nullptr));
     xaccTransSetDescription(trans, "Test transaction");
     

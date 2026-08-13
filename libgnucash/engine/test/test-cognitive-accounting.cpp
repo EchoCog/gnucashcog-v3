@@ -21,6 +21,7 @@
 #include "Split.h"
 #include "qof.h"
 #include "gnc-engine.h"
+#include "gnc-commodity.h"
 
 static bool* s_message_received = nullptr;
 
@@ -47,6 +48,13 @@ protected:
         
         // Create test book
         book = qof_book_new();
+        auto *commodity_table = gnc_commodity_table_get_table(book);
+        default_currency = gnc_commodity_table_lookup(commodity_table, GNC_COMMODITY_NS_CURRENCY, "USD");
+        if (!default_currency)
+        {
+            default_currency = gnc_commodity_new(book, "US Dollar", GNC_COMMODITY_NS_CURRENCY, "USD", "840", 100);
+            gnc_commodity_table_insert(commodity_table, default_currency);
+        }
         
         // Create test accounts
         root_account = gnc_account_create_root(book);
@@ -54,16 +62,19 @@ protected:
         checking_account = xaccMallocAccount(book);
         xaccAccountSetName(checking_account, "Checking");
         xaccAccountSetType(checking_account, ACCT_TYPE_BANK);
+        xaccAccountSetCommodity(checking_account, default_currency);
         gnc_account_append_child(root_account, checking_account);
         
         expense_account = xaccMallocAccount(book);
         xaccAccountSetName(expense_account, "Groceries");
         xaccAccountSetType(expense_account, ACCT_TYPE_EXPENSE);
+        xaccAccountSetCommodity(expense_account, default_currency);
         gnc_account_append_child(root_account, expense_account);
         
         income_account = xaccMallocAccount(book);
         xaccAccountSetName(income_account, "Salary");
         xaccAccountSetType(income_account, ACCT_TYPE_INCOME);
+        xaccAccountSetCommodity(income_account, default_currency);
         gnc_account_append_child(root_account, income_account);
     }
     
@@ -79,6 +90,7 @@ protected:
     Account *checking_account;
     Account *expense_account;
     Account *income_account;
+    gnc_commodity *default_currency;
 };
 
 TEST_F(CognitiveAccountingTest, InitializationTest)
@@ -129,6 +141,7 @@ TEST_F(CognitiveAccountingTest, PLNDoubleEntryValidation)
 {
     // Create a balanced transaction
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     // Split 1: Debit checking account $100
@@ -154,6 +167,7 @@ TEST_F(CognitiveAccountingTest, PLNUnbalancedTransaction)
 {
     // Create an unbalanced transaction
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     // Split 1: Debit checking account $100
@@ -179,6 +193,7 @@ TEST_F(CognitiveAccountingTest, PLNNEntryValidation)
 {
     // Create a 3-party transaction
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     // Split 1: Debit checking account $100
@@ -229,6 +244,7 @@ TEST_F(CognitiveAccountingTest, ECANAttentionAllocation)
 {
     // Create a transaction to trigger attention update
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     Split *split1 = xaccMallocSplit(book);
@@ -263,6 +279,7 @@ TEST_F(CognitiveAccountingTest, AttentionAllocationAcrossAccounts)
     
     // Update attention for all accounts
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     gnc_ecan_update_account_attention(checking_account, transaction);
     gnc_ecan_update_account_attention(expense_account, transaction);
     gnc_ecan_update_account_attention(income_account, transaction);
@@ -285,6 +302,8 @@ TEST_F(CognitiveAccountingTest, MOSESBalancingStrategies)
     // Create array of historical transactions
     Transaction *transaction1 = xaccMallocTransaction(book);
     Transaction *transaction2 = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction1, default_currency);
+    xaccTransSetCurrency(transaction2, default_currency);
     Transaction *transactions[] = {transaction1, transaction2};
     
     // Discover balancing strategies
@@ -295,6 +314,7 @@ TEST_F(CognitiveAccountingTest, MOSESBalancingStrategies)
 TEST_F(CognitiveAccountingTest, MOSESTransactionOptimization)
 {
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     
     // Optimize transaction
     Transaction *optimized = gnc_moses_optimize_transaction(transaction);
@@ -315,6 +335,7 @@ TEST_F(CognitiveAccountingTest, URETransactionValidity)
 {
     // Create balanced transaction
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     Split *split1 = xaccMallocSplit(book);
@@ -418,6 +439,7 @@ TEST_F(CognitiveAccountingTest, EmergentPatternDetection)
     
     // Create some transactions to generate activity patterns
     Transaction *trans1 = xaccMallocTransaction(book);
+    xaccTransSetCurrency(trans1, default_currency);
     xaccTransBeginEdit(trans1);
     
     Split *split1 = xaccMallocSplit(book);
@@ -476,6 +498,7 @@ TEST_F(CognitiveAccountingTest, EnhancedECANAttention)
 {
     // Test enhanced ECAN attention allocation
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     Split *split1 = xaccMallocSplit(book);
@@ -516,6 +539,7 @@ TEST_F(CognitiveAccountingTest, EnhancedMOSESEvolution)
     
     for (int i = 0; i < 5; i++) {
         Transaction *trans = xaccMallocTransaction(book);
+        xaccTransSetCurrency(trans, default_currency);
         xaccTransBeginEdit(trans);
         
         Split *split1 = xaccMallocSplit(book);
@@ -561,6 +585,7 @@ TEST_F(CognitiveAccountingTest, EnhancedUREPrediction)
     
     // Test enhanced URE transaction validity
     Transaction *transaction = xaccMallocTransaction(book);
+    xaccTransSetCurrency(transaction, default_currency);
     xaccTransBeginEdit(transaction);
     
     Split *split1 = xaccMallocSplit(book);
