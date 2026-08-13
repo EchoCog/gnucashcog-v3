@@ -16,6 +16,7 @@
 
 #include "gnc-cognitive-fincosys-loader.h"
 #include "gnc-cognitive-accounting.h"
+#include "gnc-cognitive-comms.h"
 
 #include <cctype>
 #include <cstring>
@@ -353,6 +354,25 @@ private:
  */
 std::map<GncAtomHandle, std::map<std::string, std::string>> g_loader_atom_attributes;
 
+/*
+ * Holds the counts from the most recent gnc_cognitive_load_fincosys_atoms()
+ * call, so the GNC_MSG_DATA_UPDATE broadcast below (see that function) can
+ * pass a pointer that outlives the function's own stack frame -- the
+ * comm hub's message queues (gnc-cognitive-comms.cpp) are drained
+ * asynchronously by each module via gnc_cognitive_receive_messages(), at a
+ * time this function has no control over, so a pointer to a purely local
+ * variable would dangle. Static storage matches this file's existing
+ * g_loader_atom_attributes pattern and this codebase's established
+ * data-payload convention (see e.g. gnc_cognitive_trigger_emergence() in
+ * gnc-cognitive-comms.cpp), with one caveat worth documenting rather than
+ * hiding: a module that hasn't drained its queue before this loader is
+ * called again will observe only the most recent call's counts, not the
+ * one whose message it queued. That is an acceptable tradeoff for a
+ * best-effort "something changed, go look" notification, not a delivery
+ * guarantee.
+ */
+GncCognitiveFincosysLoadResult g_last_broadcast_result{};
+
 } // namespace
 
 const gchar *
@@ -615,6 +635,21 @@ gnc_cognitive_load_fincosys_atoms (const gchar *json, GncCognitiveFincosysLoadRe
 
     if (result != nullptr)
         *result = local_result;
+
+    /* Notify other cognitive modules (PLN, ECAN, MOSES, URE, Scheme -- see
+     * gnc_cognitive_accounting_init()'s gnc_cognitive_register_module()
+     * calls, which run before this loader can ever reach this point since
+     * it requires the AtomSpace to already be initialized) that new
+     * fincosys-sourced atoms landed in the AtomSpace, rather than leaving
+     * this a manual-file-read-only integration. This is a best-effort
+     * broadcast: gnc_cognitive_broadcast_message() silently no-ops (with a
+     * g_warning()) if the comm hub isn't initialized, which cannot happen
+     * on this path in practice but is not treated as fatal here either --
+     * a missed notification just means a module falls back to noticing the
+     * new atoms the next time it scans the AtomSpace itself. */
+    g_last_broadcast_result = local_result;
+    gnc_cognitive_broadcast_message (GNC_MODULE_ATOMSPACE, GNC_MSG_DATA_UPDATE,
+                                      &g_last_broadcast_result);
 
     return TRUE;
 }
