@@ -71,7 +71,8 @@ static void test_neural_symbolic_kernels_init(NeuralSymbolicFixture *fixture, gc
     g_test_message("Testing neural-symbolic kernels initialization");
     
     // Kernel system should be initialized from fixture setup
-    g_assert_true(g_neural_symbolic_kernels_initialized);
+    // (re-initialization returns TRUE when already initialized)
+    g_assert_true(gnc_neural_symbolic_kernels_init());
     
     // Test double initialization (should be safe)
     g_assert_true(gnc_neural_symbolic_kernels_init());
@@ -203,7 +204,8 @@ static void test_symbolic_tensor_pattern_matching(NeuralSymbolicFixture *fixture
     gsize shape[] = {128}; // 128-dimensional patterns
     GncTensorData *pattern_tensor = gnc_tensor_data_create("pattern", 1, shape);
     GncTensorData *data_tensor = gnc_tensor_data_create("data", 1, shape);
-    GncTensorData *match_scores = gnc_tensor_data_create("scores", 1, &(gsize){1});
+    gsize score_shape[] = {1};
+    GncTensorData *match_scores = gnc_tensor_data_create("scores", 1, score_shape);
     
     // Create similar patterns
     for (gsize i = 0; i < 128; i++) {
@@ -293,7 +295,7 @@ static void test_atomspace_neural_integration(NeuralSymbolicFixture *fixture, gc
     g_assert_cmpint(result_atom, !=, 0);
     
     // Test consistency check
-    GList *symbolic_atoms = g_list_append(NULL, GUINT64_TO_POINTER(test_atom));
+    GList *symbolic_atoms = g_list_append(NULL, GSIZE_TO_POINTER(test_atom));
     gdouble consistency_score;
     
     g_assert_true(gnc_neural_symbolic_consistency_check(neural_tensor,
@@ -496,7 +498,7 @@ static void test_end_to_end_neural_symbolic_pipeline(NeuralSymbolicFixture *fixt
     g_assert_true(gnc_neural_symbolic_inference_step(pipeline, symbolic_tensor, symbolic_output));
     
     // Phase 4: Consistency check
-    GList *atoms = g_list_append(NULL, GUINT64_TO_POINTER(symbolic_atom));
+    GList *atoms = g_list_append(NULL, GSIZE_TO_POINTER(symbolic_atom));
     gdouble consistency;
     g_assert_true(gnc_neural_symbolic_consistency_check(symbolic_output, atoms, &consistency));
     

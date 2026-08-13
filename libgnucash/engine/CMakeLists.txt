@@ -57,13 +57,21 @@ set (engine_HEADERS
   gnc-cognitive-accounting.h
   gnc-cognitive-primitives.h
   gnc-cognitive-scheme.h
+  gnc-ko6ml-translation.h
+  gnc-ko6ml-atomspace.h
   gnc-cognitive-comms.h
   gnc-tensor-network.h
+  gnc-neural-symbolic-kernels.h
   gnc-meta-cognitive.h
   gnc-ontogenesis-bridge.h
   gnc-cognitive-unification.h
   gnc-cognitive-api.h
   gnc-cognitive-graphql.h
+  gnc-cognitive-json-util.h
+  gnc-fincosys-bridge.h
+  gnc-cognitive-fincosys-loader.h
+  gnc-virtual-device.h
+  gnc-financial-device-driver.h
   gnc-commodity.h
   gnc-commodity.hpp
   gnc-date.h
@@ -168,13 +176,20 @@ set (engine_SOURCES
   gnc-cognitive-accounting.cpp
   gnc-cognitive-primitives.cpp
   gnc-cognitive-scheme.cpp
+  gnc-ko6ml-translation.cpp
+  gnc-ko6ml-atomspace.cpp
   gnc-cognitive-comms.cpp
   gnc-tensor-network.cpp
+  gnc-neural-symbolic-kernels.cpp
   gnc-meta-cognitive.cpp
   gnc-ontogenesis-bridge.cpp
   gnc-cognitive-unification.cpp
   gnc-cognitive-api.c
   gnc-cognitive-graphql.c
+  gnc-fincosys-bridge.cpp
+  gnc-cognitive-fincosys-loader.cpp
+  gnc-virtual-device.cpp
+  gnc-financial-device-driver.cpp
   gnc-commodity.cpp
   gnc-date.cpp
   gnc-datetime.cpp
@@ -290,6 +305,7 @@ target_compile_definitions (gnc-engine PRIVATE -DG_LOG_DOMAIN=\"gnc.engine\")
 target_include_directories (gnc-engine
     PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR} # for iso-4217-currencies.c
+        $<$<BOOL:${HAVE_JSON_GLIB}>:${JSON_GLIB_INCLUDE_DIRS}>  # for gnc-cognitive-api.c
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_BINARY_DIR}/common # for config.h

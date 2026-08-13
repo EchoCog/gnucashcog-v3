@@ -265,17 +265,19 @@ gboolean gnc_symbolic_tensor_attention_flow(GncTensorData *attention_state,
     
     gsize n_nodes = attention_state->shape[0];
     
-    // Apply attention flow dynamics: A' = A + M * A * dt
+    // Apply conservative attention flow dynamics:
+    // A'[i] = A[i] + (inflow[i] - outflow[i]) * dt
     for (gsize i = 0; i < n_nodes; i++) {
         gfloat current_attention = attention_state->data[i];
         gfloat flow_sum = 0.0f;
         
-        // Sum incoming attention flows
+        // Sum incoming attention flows minus outgoing attention flows
         for (gsize j = 0; j < n_nodes; j++) {
             if (i != j) {
-                gfloat flow_rate = flow_matrix->data[j * n_nodes + i];
-                gfloat source_attention = attention_state->data[j];
-                flow_sum += flow_rate * source_attention;
+                gfloat inflow_rate = flow_matrix->data[j * n_nodes + i];
+                gfloat outflow_rate = flow_matrix->data[i * n_nodes + j];
+                flow_sum += inflow_rate * attention_state->data[j];
+                flow_sum -= outflow_rate * current_attention;
             }
         }
         
@@ -508,7 +510,7 @@ gboolean gnc_atomspace_to_neural_tensor(GncAtomHandle atom_handle,
         return FALSE;
     }
     
-    g_debug("Converting AtomSpace atom %lu to neural tensor", atom_handle);
+    g_debug("Converting AtomSpace atom %" G_GUINT64_FORMAT " to neural tensor", atom_handle);
     
     // Simple encoding: use atom handle as seed for tensor values
     guint64 seed = atom_handle;
@@ -543,7 +545,7 @@ gboolean gnc_neural_tensor_to_atomspace(GncTensorData *tensor_input,
     
     *atom_handle = hash;
     
-    g_debug("Tensor to AtomSpace conversion completed, atom: %lu", *atom_handle);
+    g_debug("Tensor to AtomSpace conversion completed, atom: %" G_GUINT64_FORMAT, *atom_handle);
     return TRUE;
 }
 
@@ -562,7 +564,7 @@ gboolean gnc_atomspace_neural_compute(GList *atom_handles,
     GList *current = atom_handles;
     
     while (current) {
-        GncAtomHandle atom_handle = GPOINTER_TO_UINT64(current->data);
+        GncAtomHandle atom_handle = GPOINTER_TO_SIZE(current->data);
         
         // Convert atom to tensor
         gsize shape[] = {64}; // 64-dimensional representation
@@ -579,7 +581,7 @@ gboolean gnc_atomspace_neural_compute(GList *atom_handles,
             GncAtomHandle result_atom;
             if (gnc_neural_tensor_to_atomspace(result_tensor, &result_atom)) {
                 *result_atoms = g_list_append(*result_atoms, 
-                                            GUINT64_TO_POINTER(result_atom));
+                                            GSIZE_TO_POINTER(result_atom));
             }
         }
         
@@ -608,7 +610,7 @@ gboolean gnc_neural_symbolic_consistency_check(GncTensorData *neural_state,
     GList *current = symbolic_atoms;
     
     while (current) {
-        GncAtomHandle atom_handle = GPOINTER_TO_UINT64(current->data);
+        GncAtomHandle atom_handle = GPOINTER_TO_SIZE(current->data);
         
         // Convert atom to tensor representation
         gsize shape[] = {neural_state->shape[0]};
@@ -859,7 +861,7 @@ gboolean gnc_neural_symbolic_kernel_benchmark(GncNeuralSymbolicKernel *kernel,
     gnc_tensor_data_destroy(input_b);
     gnc_tensor_data_destroy(output);
     
-    g_debug("Kernel benchmarking completed: %.2f ms, %ld ops, %.2f ops/sec",
+    g_debug("Kernel benchmarking completed: %.2f ms, %" G_GINT64_FORMAT " ops, %.2f ops/sec",
             metrics->computation_time_ms,
             metrics->operations_count,
             metrics->throughput_ops_per_sec);

@@ -425,7 +425,7 @@ gchar* gnc_scheme_uncertain_prediction(Account *account, time64 future_date)
     
     // Apply URE uncertain reasoning via Scheme
     gchar* prediction_scheme = g_strdup_printf(
-        "(uncertain-reasoning-prediction \"%s\" %ld)", 
+        "(uncertain-reasoning-prediction \"%s\" %" G_GINT64_FORMAT ")",
         account_name, future_date);
     
     gchar* result = gnc_cognitive_scheme_eval(prediction_scheme);

@@ -93,8 +93,7 @@ protected:
         JsonParser *parser = json_parser_new();
         json_parser_load_from_data(parser, json_string, -1, nullptr);
         JsonNode *root = json_parser_get_root(parser);
-        JsonObject *object = json_node_get_object(root);
-        g_object_ref(G_OBJECT(object));
+        JsonObject *object = json_node_dup_object(root);
         g_object_unref(parser);
         return object;
     }
@@ -122,7 +121,7 @@ TEST_F(CognitiveApiTest, TestGetCognitiveState)
     const gchar *status = json_object_get_string_member(json_obj, "status");
     EXPECT_STREQ(status, "active");
     
-    g_object_unref(json_obj);
+    json_object_unref(json_obj);
     free_api_response(response);
     free_test_request(request);
 }
@@ -150,7 +149,7 @@ TEST_F(CognitiveApiTest, TestProcessCognitiveTask)
     const gchar *status = json_object_get_string_member(json_obj, "status");
     EXPECT_STREQ(status, "processing");
     
-    g_object_unref(json_obj);
+    json_object_unref(json_obj);
     free_api_response(response);
     free_test_request(request);
 }
@@ -175,9 +174,9 @@ TEST_F(CognitiveApiTest, TestGetAttentionAllocation)
     EXPECT_TRUE(json_object_has_member(attention, "node_allocations"));
     
     JsonArray *allocations = json_object_get_array_member(attention, "node_allocations");
-    EXPECT_EQ(json_array_get_length(allocations), 4); // Memory, Task, AI, Autonomy nodes
+    EXPECT_EQ(static_cast<int>(json_array_get_length(allocations)), 4); // Memory, Task, AI, Autonomy nodes
     
-    g_object_unref(json_obj);
+    json_object_unref(json_obj);
     free_api_response(response);
     free_test_request(request);
 }
@@ -205,7 +204,7 @@ TEST_F(CognitiveApiTest, TestAgentRegistration)
     const gchar *status = json_object_get_string_member(json_obj, "status");
     EXPECT_STREQ(status, "registered");
     
-    g_object_unref(json_obj);
+    json_object_unref(json_obj);
     free_api_response(response);
     free_test_request(request);
 }
@@ -223,7 +222,7 @@ TEST_F(CognitiveApiTest, TestMissingRequestBody)
     JsonObject *json_obj = parse_json_response(response->body);
     EXPECT_TRUE(json_object_has_member(json_obj, "error"));
     
-    g_object_unref(json_obj);
+    json_object_unref(json_obj);
     free_api_response(response);
     free_test_request(request);
 }

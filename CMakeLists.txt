@@ -1092,7 +1092,12 @@ set(toplvl_DIST_local ${gnucash_DOCS}
     doxygen.cfg.in
     doxygen_main_page.c
     CMakeLists.txt
-    README)
+    README.md
+    phase1-cognitive-primitives-demo.cpp
+    neural-symbolic-synthesis-demo.cpp
+    phase4-api-demo.cpp
+    meta-cognitive-demo.cpp
+    phase6-comprehensive-demo.cpp)
 
 
 set_local_dist(toplvl_DIST ${toplvl_DIST_local})
@@ -1334,6 +1339,33 @@ target_include_directories(phase6-comprehensive-demo PRIVATE
 
 target_compile_definitions(phase6-comprehensive-demo PRIVATE 
     -DG_LOG_DOMAIN=\"gnc.phase6\"
+)
+
+# ############################################################
+# Phase 3: Neural-Symbolic Synthesis via Custom ggml Kernels Demo
+# ############################################################
+
+# Neural-Symbolic Synthesis Demo
+add_executable(neural-symbolic-synthesis-demo
+    neural-symbolic-synthesis-demo.cpp
+)
+
+target_link_libraries(neural-symbolic-synthesis-demo
+    gnc-engine
+    gnc-core-utils
+    PkgConfig::GLIB2
+    ${GOBJECT_LDFLAGS}
+    Threads::Threads
+)
+
+target_include_directories(neural-symbolic-synthesis-demo PRIVATE
+    ${CMAKE_BINARY_DIR}/common # for config.h
+    ${CMAKE_SOURCE_DIR}/common # for platform.h
+    ${CMAKE_SOURCE_DIR}/libgnucash/engine
+)
+
+target_compile_definitions(neural-symbolic-synthesis-demo PRIVATE 
+    -DG_LOG_DOMAIN=\"gnc.phase3\"
 )
 
 # ############################################################

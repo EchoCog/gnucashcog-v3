@@ -38,8 +38,12 @@
 #include <gnc-prefs-utils.h>
 #include <gnc-session.h>
 #include <qoflog.h>
+#include <gnc-fincosys-bridge.h>
+#include <gnc-cognitive-accounting.h>
+#include <gnc-cognitive-fincosys-loader.h>
 
 #include <boost/locale.hpp>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -436,4 +440,138 @@ Gnucash::report_list (void)
 {
     scm_boot_guile (0, nullptr, scm_report_list, NULL);
     return 0;
+}
+
+namespace {
+
+/* --import-fincosys-sync accepts two different, unrelated JSON schemas:
+ *  - "fincosys-ecosystem-sync/v1" (gnc-fincosys-bridge.h): top-level
+ *    "schema"/"source"/"atoms"/"links", numeric-string atom ids.
+ *  - cognitive_atoms.json (gnc-cognitive-fincosys-loader.h): top-level
+ *    "schema_version"/"atoms"/"evaluations", symbolic atom ids like
+ *    "entity:RST".
+ * Both happen to have a top-level "atoms" key, but with incompatible
+ * shapes, so "atoms" can't be used to tell them apart. "schema_version" is
+ * the one key unique to the second schema -- the first never has it. This
+ * is a lightweight substring sniff rather than a full JSON parse: good
+ * enough to route between exactly these two known, already-parsed-in-full-
+ * downstream schemas without a third JSON parser just for detection. */
+bool
+looks_like_cognitive_atoms_json (const gchar *contents)
+{
+    return contents != nullptr && std::strstr (contents, "\"schema_version\"") != nullptr;
+}
+
+} // namespace
+
+int
+Gnucash::import_fincosys_sync (const bo_str& sync_file, const bo_str& export_file)
+{
+    if (!sync_file || sync_file->empty ())
+    {
+        std::cerr << _("Missing --import-fincosys-sync file parameter") << std::endl;
+        return 1;
+    }
+
+    gchar *contents = nullptr;
+    GError *error = nullptr;
+    if (!g_file_get_contents (sync_file->c_str (), &contents, nullptr, &error))
+    {
+        std::cerr << bl::format (bl::translate ("Failed to read fincosys sync file {1}: {2}"))
+                      % *sync_file % (error ? error->message : "unknown error") << std::endl;
+        if (error)
+            g_error_free (error);
+        return 1;
+    }
+
+    if (!gnc_cognitive_accounting_init ())
+    {
+        std::cerr << _("Failed to initialize the cognitive AtomSpace") << std::endl;
+        g_free (contents);
+        return 1;
+    }
+
+    bool is_cognitive_atoms_json = looks_like_cognitive_atoms_json (contents);
+    gint n_imported;
+    if (is_cognitive_atoms_json)
+    {
+        GncCognitiveFincosysLoadResult result;
+        gboolean ok = gnc_cognitive_load_fincosys_atoms (contents, &result);
+        g_free (contents);
+
+        if (!ok)
+        {
+            std::cerr << _("cognitive_atoms.json file could not be parsed, or the "
+                "cognitive AtomSpace failed to initialize; nothing imported.") << std::endl;
+            gnc_cognitive_accounting_shutdown ();
+            return 1;
+        }
+
+        std::cout << bl::format (bl::translate (
+            "Imported {1} concept node(s), {2} inheritance link(s), and {3} evaluation "
+            "link(s) from cognitive_atoms.json ({4} atom(s), {5} link(s), and {6} "
+            "evaluation entry/entries skipped)."))
+                      % result.atoms_created % result.links_created % result.evaluations_created
+                      % result.atoms_skipped % result.links_skipped % result.evaluations_skipped
+                      << std::endl;
+
+        n_imported = static_cast<gint> (result.atoms_created + result.links_created +
+                                         result.evaluations_created);
+    }
+    else
+    {
+        n_imported = gnc_cognitive_import_fincosys_json (contents);
+        g_free (contents);
+    }
+
+    if (n_imported < 0)
+    {
+        std::cerr << _("Fincosys sync file could not be parsed, or the cognitive "
+            "AtomSpace failed to initialize; nothing imported.") << std::endl;
+        gnc_cognitive_accounting_shutdown ();
+        return 1;
+    }
+
+    if (!is_cognitive_atoms_json)
+        std::cout << bl::format (bl::translate (
+            "Imported {1} atom(s)/link(s) from fincosys sync data into the cognitive AtomSpace."))
+                      % n_imported << std::endl;
+
+    int rv = 0;
+    if (export_file && !export_file->empty ())
+    {
+        /* Re-exporting the freshly-imported atoms lets this command double as
+         * a round-trip check, and produces a merged snapshot (imported atoms
+         * plus whatever the cognitive engine already held) that can be fed
+         * back into fincosys-atomspace-builder or gnucashm for the next sync
+         * pass -- the cognitive AtomSpace itself has no on-disk persistence
+         * of its own (see gnc-cognitive-accounting.h), so this is the only
+         * way its state survives past process exit. */
+        gchar *out_json = gnc_cognitive_export_fincosys_json ();
+        if (out_json == nullptr)
+        {
+            std::cerr << _("Cognitive AtomSpace export failed unexpectedly after a "
+                "successful import.") << std::endl;
+            rv = 1;
+        }
+        else
+        {
+            GError *werror = nullptr;
+            if (!g_file_set_contents (export_file->c_str (), out_json, -1, &werror))
+            {
+                std::cerr << bl::format (bl::translate ("Failed to write {1}: {2}"))
+                              % *export_file % (werror ? werror->message : "unknown error") << std::endl;
+                if (werror)
+                    g_error_free (werror);
+                rv = 1;
+            }
+            else
+                std::cout << bl::format (bl::translate ("Wrote merged cognitive AtomSpace to {1}."))
+                              % *export_file << std::endl;
+            g_free (out_json);
+        }
+    }
+
+    gnc_cognitive_accounting_shutdown ();
+    return rv;
 }

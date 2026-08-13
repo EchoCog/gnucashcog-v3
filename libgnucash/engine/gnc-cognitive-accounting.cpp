@@ -18,6 +18,7 @@
 #include "gnc-cognitive-scheme.h"
 #include "gnc-cognitive-comms.h"
 #include "gnc-tensor-network.h"
+#include "gnc-neural-symbolic-kernels.h"
 #include "Account.h"
 #include "Split.h"
 #include "Transaction.h"
@@ -101,7 +102,13 @@ struct GncCognitiveAtomSpace {
                 guint64 gnc_link_handle = reinterpret_cast<guint64>(link_handle.value());
                 opencog_handles[gnc_link_handle] = link_handle;
                 handle_types[gnc_link_handle] = GNC_ATOM_ACCOUNT_HIERARCHY;
-                
+                /* Match the fallback branch's naming convention (see below)
+                 * so external export/sync bridges (gnc_atomspace_foreach_atom())
+                 * can recover participant handles regardless of which
+                 * AtomSpace backend is compiled in. */
+                handle_names[gnc_link_handle] = "HierarchyLink:" +
+                    std::to_string(parent_handle) + "->" + std::to_string(child_handle);
+
                 return gnc_link_handle;
             }
         }
@@ -331,8 +338,64 @@ gboolean gnc_atomspace_get_truth_value(GncAtomHandle atom_handle,
         if (confidence) *confidence = it->second.second;
         return TRUE;
     }
-    
+
     return FALSE;
+}
+
+gboolean gnc_atomspace_foreach_atom(GncAtomForeachCB callback, gpointer user_data)
+{
+    g_return_val_if_fail(callback != nullptr, FALSE);
+
+    if (!g_atomspace) {
+        g_warning("Cognitive accounting not initialized");
+        return FALSE;
+    }
+
+#ifdef HAVE_OPENCOG_ATOMSPACE
+    for (const auto& pair : g_atomspace->handle_types)
+    {
+        GncAtomHandle handle = pair.first;
+        GncAtomType type = pair.second;
+
+        auto name_it = g_atomspace->handle_names.find(handle);
+        std::string name = (name_it != g_atomspace->handle_names.end())
+                                ? name_it->second
+                                : std::string();
+
+        gdouble strength = 0.5, confidence = 0.5;
+        auto attn_it = g_atomspace->attention_params.find(handle);
+        if (attn_it != g_atomspace->attention_params.end())
+        {
+            strength = attn_it->second.strength;
+            confidence = attn_it->second.confidence;
+        }
+
+        callback(handle, type, name.c_str(), strength, confidence, user_data);
+    }
+#else
+    for (const auto& pair : g_atomspace->atom_types)
+    {
+        GncAtomHandle handle = pair.first;
+        GncAtomType type = pair.second;
+
+        auto name_it = g_atomspace->atom_names.find(handle);
+        std::string name = (name_it != g_atomspace->atom_names.end())
+                                ? name_it->second
+                                : std::string();
+
+        gdouble strength = 0.5, confidence = 0.5;
+        auto tv_it = g_atomspace->truth_values.find(handle);
+        if (tv_it != g_atomspace->truth_values.end())
+        {
+            strength = tv_it->second.first;
+            confidence = tv_it->second.second;
+        }
+
+        callback(handle, type, name.c_str(), strength, confidence, user_data);
+    }
+#endif
+
+    return TRUE;
 }
 
 /********************************************************************\
@@ -389,6 +452,13 @@ gboolean gnc_cognitive_accounting_init(void)
         g_message("Distributed ggml tensor network initialized successfully");
     }
     
+    // Initialize Phase 3: Neural-symbolic synthesis via custom ggml kernels
+    if (!gnc_neural_symbolic_kernels_init()) {
+        g_warning("Failed to initialize Phase 3 neural-symbolic kernels");
+    } else {
+        g_message("Phase 3: Neural-Symbolic Synthesis via Custom ggml Kernels initialized");
+    }
+    
     // Register core modules with communication hub
     gnc_cognitive_register_module(GNC_MODULE_ATOMSPACE);
     gnc_cognitive_register_module(GNC_MODULE_PLN);
@@ -417,6 +487,9 @@ void gnc_cognitive_accounting_shutdown(void)
     
     // Shutdown Phase 1: Cognitive primitives
     gnc_cognitive_primitives_shutdown();
+    
+    // Shutdown Phase 3: Neural-symbolic kernels
+    gnc_neural_symbolic_kernels_shutdown();
     
     // Shutdown tensor network
     gnc_tensor_network_shutdown();
@@ -1204,11 +1277,9 @@ GncAtomHandle gnc_optimize_distributed_attention(gdouble cognitive_load,
     
     // Update fund totals based on optimization
     gdouble total_current_sti = 0.0;
-    gdouble total_current_lti = 0.0;
-    
+
     for (auto& param_pair : g_atomspace->attention_params) {
         total_current_sti += param_pair.second.sti;
-        total_current_lti += param_pair.second.lti;
     }
     
     // Ensure fund conservation
@@ -1432,20 +1503,18 @@ void gnc_ecan_allocate_attention(Account **accounts, gint n_accounts)
     }
     
     // Enhanced ECAN-style attention allocation with sophisticated cognitive economics
-    gdouble total_sti = 0.0;
     gdouble total_lti = 0.0;
     gdouble total_activity = 0.0;
     std::vector<GncAtomHandle> account_handles;
     std::vector<gdouble> activity_scores;
-    
+
     // Collect all account handles and calculate totals
     for (gint i = 0; i < n_accounts; i++) {
         auto it = g_atomspace->account_atoms.find(accounts[i]);
         if (it != g_atomspace->account_atoms.end()) {
             account_handles.push_back(it->second);
             auto& params = g_atomspace->attention_params[it->second];
-            
-            total_sti += params.sti;
+
             total_lti += params.lti;
             total_activity += params.activity_level;
             
@@ -2211,7 +2280,7 @@ gchar* gnc_ecan_scheduler_submit_task(const gchar *task_type,
     
     // Create new cognitive task
     GncCognitiveTask *task = g_new0(GncCognitiveTask, 1);
-    task->task_id = g_strdup_printf("task_%lu", g_task_scheduler.next_task_id++);
+    task->task_id = g_strdup_printf("task_%" G_GUINT64_FORMAT, g_task_scheduler.next_task_id++);
     task->task_type = g_strdup(task_type);
     task->priority = priority;
     task->attention_requirement = attention_requirement;
@@ -2775,7 +2844,6 @@ gdouble gnc_ure_transaction_validity(const Transaction *transaction)
     gdouble temporal_uncertainty = 1.0;
     gdouble account_reliability_factor = 1.0;
     gdouble pattern_consistency_factor = 1.0;
-    gdouble economic_context_factor = 1.0;
     
     // Complexity-based uncertainty (more complex = more uncertain)
     if (split_count > 2) {

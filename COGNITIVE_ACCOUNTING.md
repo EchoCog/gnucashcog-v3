@@ -456,6 +456,55 @@ Run tests with:
 make test-cognitive-accounting
 ```
 
+`test-fincosys-bridge.cpp` covers the sync bridge itself (schema header,
+concept-node export, inheritance/evaluation link export with recovered
+participants, truth-value round-tripping).
+
+> **Note:** on a clean checkout, `gnc-engine` currently fails to build on a
+> modern gcc 13 / glib 2.80 toolchain for reasons unrelated to this change --
+> pre-existing issues in `gnc-cognitive-primitives.cpp` (`g_atomic_int_add`
+> used on a `guint64` counter), `gnc-tensor-network.cpp` (a stale
+> `xaccAccountGetReconcileLastDate()` call signature and a compound-literal
+> address-of-temporary), `gnc-cognitive-api.c` (unconditional
+> `#include <json-glib/json-glib.h>` even when JSON-GLib isn't found), and
+> `gnc-cognitive-unification.cpp` (missing `<iomanip>`), plus multiple
+> pre-existing compile errors in `test-cognitive-accounting.cpp` itself
+> under `-Werror`. `gnc-fincosys-bridge.cpp`, the `gnc-cognitive-accounting`
+> changes, and `test-fincosys-bridge.cpp` were each verified to compile
+> cleanly in isolation against this toolchain (object-file compiles for the
+> first two; a `-fsyntax-only` pass with the project's exact warning flags
+> for the test) -- but a full `gnc-engine` link/run could not be validated
+> here. Worth a follow-up fix independent of this change.
+
+## Fincosys Ecosystem Sync
+
+`gnc-fincosys-bridge.h/cpp` gives this repo's simulated AtomSpace (the
+`GncCognitiveAtomSpace` struct in `gnc-cognitive-accounting.cpp`) a real
+external integration point, alongside the aspirational OpenCog dependencies
+described above:
+
+- `gnc_atomspace_foreach_atom()` (declared in `gnc-cognitive-accounting.h`)
+  iterates every atom currently registered in the AtomSpace, regardless of
+  whether it's backed by a real `atomspace` library or the fallback
+  `std::map`-based simulation used when `HAVE_OPENCOG_ATOMSPACE` isn't
+  defined (the normal case for this build, per the dependency checks above).
+- `gnc_cognitive_export_fincosys_json()` uses that accessor to export every
+  ConceptNode / PredicateNode / InheritanceLink / EvaluationLink / etc.
+  atom to the shared **Fincosys Ecosystem Sync Schema v1**
+  (`"schema": "fincosys-ecosystem-sync/v1"`, `"source": "gnucashcog-v3"`):
+  node-type atoms go under `"atoms"`, link-type atoms go under `"links"`
+  with their two participant handles recovered from the link atom's encoded
+  name (e.g. `"InheritanceLink:<child>-><parent>"` --
+  see `gnc_atomspace_create_inheritance_link()`) on a best-effort basis.
+
+The consumer lives in the external
+[`fincosys-atomspace-builder`](https://github.com/RegimA-Zone/fincosys-atomspace-builder)
+repository: `atomspace_builder/loaders/gnucashcog.py` reads this export and
+maps every atom/link directly onto `HyperNode`/`HyperEdge` instances in a
+built AtomSpace hypergraph, alongside records synced from fincosys,
+gnucashm, and helix. See that repo's README for the full schema and the
+other sides of the same sync loop.
+
 ## Future Enhancements
 
 - **Deep Learning Integration**: Neural network-based pattern recognition

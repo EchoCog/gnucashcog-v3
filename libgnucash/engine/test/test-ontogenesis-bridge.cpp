@@ -28,13 +28,18 @@
  * Fixture helpers
  * --------------------------------------------------------------- */
 
-static void setup(void)
+/* Empty fixture struct required by g_test_add (void is not valid) */
+typedef struct {
+    int placeholder;
+} OntogenesisBridgeFixture;
+
+static void setup(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_assert_true(gnc_meta_cognitive_init());
     /* gnc_meta_cognitive_init() now also calls gnc_ontogenesis_bridge_init() */
 }
 
-static void teardown(void)
+static void teardown(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     gnc_meta_cognitive_shutdown();
     /* gnc_meta_cognitive_shutdown() now also calls gnc_ontogenesis_bridge_shutdown() */
@@ -44,7 +49,7 @@ static void teardown(void)
  * Bridge lifecycle
  * --------------------------------------------------------------- */
 
-static void test_bridge_init_shutdown(void)
+static void test_bridge_init_shutdown(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing bridge init / shutdown lifecycle...");
 
@@ -60,7 +65,7 @@ static void test_bridge_init_shutdown(void)
  * Directive submission
  * --------------------------------------------------------------- */
 
-static void test_submit_directive(void)
+static void test_submit_directive(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing directive submission to ontogenesis kernel...");
 
@@ -92,7 +97,7 @@ static void test_submit_directive(void)
  * Result integration into meta-cognitive metrics
  * --------------------------------------------------------------- */
 
-static void test_integrate_result(void)
+static void test_integrate_result(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing ontogenesis result integration into meta-cognitive metrics...");
 
@@ -128,7 +133,7 @@ static void test_integrate_result(void)
  * Submit from analysis
  * --------------------------------------------------------------- */
 
-static void test_submit_from_analysis(void)
+static void test_submit_from_analysis(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing directive submission from self-analysis...");
 
@@ -158,7 +163,7 @@ static void test_submit_from_analysis(void)
  * Combined step
  * --------------------------------------------------------------- */
 
-static void test_combined_step(void)
+static void test_combined_step(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing combined meta-cognition + ontogenesis step...");
 
@@ -176,7 +181,7 @@ static void test_combined_step(void)
  * Combined loop start / stop
  * --------------------------------------------------------------- */
 
-static void test_combined_loop(void)
+static void test_combined_loop(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing combined loop start / stop...");
 
@@ -200,7 +205,7 @@ static void test_combined_loop(void)
  * Kernel registration replacement
  * --------------------------------------------------------------- */
 
-static void test_kernel_replacement(void)
+static void test_kernel_replacement(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing kernel replacement...");
 
@@ -218,7 +223,7 @@ static void test_kernel_replacement(void)
  * Edge cases: NULL inputs
  * --------------------------------------------------------------- */
 
-static void test_null_inputs(void)
+static void test_null_inputs(OntogenesisBridgeFixture *fixture G_GNUC_UNUSED, gconstpointer data G_GNUC_UNUSED)
 {
     g_test_message("Testing NULL input handling...");
 
@@ -240,21 +245,21 @@ int main(int argc, char **argv)
     g_test_init(&argc, &argv, NULL);
 
     g_test_add("/ontogenesis-bridge/init-shutdown",
-               void, NULL, setup, test_bridge_init_shutdown, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_bridge_init_shutdown, teardown);
     g_test_add("/ontogenesis-bridge/submit-directive",
-               void, NULL, setup, test_submit_directive, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_submit_directive, teardown);
     g_test_add("/ontogenesis-bridge/integrate-result",
-               void, NULL, setup, test_integrate_result, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_integrate_result, teardown);
     g_test_add("/ontogenesis-bridge/submit-from-analysis",
-               void, NULL, setup, test_submit_from_analysis, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_submit_from_analysis, teardown);
     g_test_add("/ontogenesis-bridge/combined-step",
-               void, NULL, setup, test_combined_step, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_combined_step, teardown);
     g_test_add("/ontogenesis-bridge/combined-loop",
-               void, NULL, setup, test_combined_loop, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_combined_loop, teardown);
     g_test_add("/ontogenesis-bridge/kernel-replacement",
-               void, NULL, setup, test_kernel_replacement, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_kernel_replacement, teardown);
     g_test_add("/ontogenesis-bridge/null-inputs",
-               void, NULL, setup, test_null_inputs, teardown);
+               OntogenesisBridgeFixture, NULL, setup, test_null_inputs, teardown);
 
     return g_test_run();
 }

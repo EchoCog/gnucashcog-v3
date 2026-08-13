@@ -43,7 +43,7 @@ int main()
     
     // Initialize systems
     qof_init();
-    gnc_engine_init_static();
+    gnc_engine_init_static(0, nullptr);
     
     if (!gnc_cognitive_primitives_init()) {
         std::cerr << "❌ Failed to initialize cognitive primitives system\n";
@@ -187,9 +187,9 @@ static void demonstrate_hypergraph_encoding()
     std::vector<GncHypergraphNode> concept_nodes;
     const char* concepts[] = {"Account", "Transaction", "Split", "Balance", "Journal", "Ledger"};
     
-    for (const char* concept : concepts) {
+    for (const char* concept_name : concepts) {
         GncHypergraphNode node = gnc_financial_hypergraph_add_node(
-            complex_graph, concept, nullptr);
+            complex_graph, concept_name, nullptr);
         concept_nodes.push_back(node);
     }
     

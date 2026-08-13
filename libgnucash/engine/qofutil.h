@@ -196,6 +196,11 @@ gchar * ultostr (gulong val, gint base);
 gboolean gnc_strisnum(const gchar *s);
 
 #ifndef HAVE_STPCPY
+/* On macOS, stpcpy may be defined as a security-enhanced macro.
+ * We need to undef it first to avoid -Werror,-Wmacro-redefined. */
+#ifdef stpcpy
+#undef stpcpy
+#endif
 #define stpcpy g_stpcpy
 #endif
 

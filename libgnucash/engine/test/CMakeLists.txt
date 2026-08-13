@@ -98,6 +98,7 @@ set(gtest_qof_LIBS
 set(gtest_engine_INCLUDES
   ${MODULEPATH}
   ${CMAKE_SOURCE_DIR}/libgnucash/core-utils
+  ${CMAKE_SOURCE_DIR}/libgnucash/engine/test-core
   ${CMAKE_BINARY_DIR}/common # for config.h
   ${CMAKE_SOURCE_DIR}/common # for platform.h
   ../../../borrowed/libc
@@ -214,9 +215,25 @@ gnc_add_test(test-cognitive-accounting test-cognitive-accounting.cpp
 gnc_add_test(test-cognitive-primitives test-cognitive-primitives.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Phase 1: ko6ml <-> AtomSpace hypergraph translation test
+gnc_add_test(test-ko6ml-translation test-ko6ml-translation.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 # Tensor network test
 gnc_add_test(test-tensor-network test-tensor-network.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
+# Phase 3: Neural-symbolic synthesis kernel test
+gnc_add_test(test-neural-symbolic-kernels test-neural-symbolic-kernels.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
+# Phase 4: Cognitive API test (requires JSON-GLib)
+if (HAVE_JSON_GLIB)
+set(gtest_cognitive_api_LIBS ${gtest_old_engine_LIBS} ${JSON_GLIB_LIBRARIES})
+set(gtest_cognitive_api_INCLUDES ${gtest_engine_INCLUDES} ${JSON_GLIB_INCLUDE_DIRS})
+gnc_add_test(test-cognitive-api test-cognitive-api.cpp
+  gtest_cognitive_api_INCLUDES gtest_cognitive_api_LIBS)
+endif()
 
 # Meta-cognitive test
 gnc_add_test(test-meta-cognitive test-meta-cognitive.cpp
@@ -228,6 +245,14 @@ gnc_add_test(test-ontogenesis-bridge test-ontogenesis-bridge.cpp
 
 # Phase 6 comprehensive test
 gnc_add_test(test-phase6-comprehensive test-phase6-comprehensive.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
+# Fincosys ecosystem sync bridge test
+gnc_add_test(test-fincosys-bridge test-fincosys-bridge.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
+# cognitive_atoms.json loader test
+gnc_add_test(test-cognitive-fincosys-loader test-cognitive-fincosys-loader.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
 set(test_engine_SOURCES_DIST
@@ -247,10 +272,15 @@ set(test_engine_SOURCES_DIST
         test-business.c
         test-cognitive-accounting.cpp
         test-cognitive-primitives.cpp
+        test-cognitive-api.cpp
+        test-ko6ml-translation.cpp
         test-tensor-network.cpp
+        test-neural-symbolic-kernels.cpp
         test-meta-cognitive.cpp
         test-ontogenesis-bridge.cpp
         test-phase6-comprehensive.cpp
+        test-fincosys-bridge.cpp
+        test-cognitive-fincosys-loader.cpp
         test-commodities.cpp
         test-customer.c
         test-employee.c
