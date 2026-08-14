@@ -217,6 +217,8 @@ jobs:
           libgwengui-gtk3-dev libaqbanking-dev
           libdbi-dev libdbd-sqlite3 libwebkit2gtk-4.1-dev googletest
           ${{ matrix.with_ofx && 'libofx-dev' || '' }}
+      - name: Install language packs
+        run: sudo apt-get --reinstall install -y language-pack-en language-pack-fr
       - run: echo "ROOT_DIR=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
       - name: Create directories
         run: |
