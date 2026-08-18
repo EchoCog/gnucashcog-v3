@@ -19,6 +19,10 @@
 #include "gnc-cognitive-comms.h"
 #include "gnc-tensor-network.h"
 #include "gnc-neural-symbolic-kernels.h"
+#include "gnc-fincosys-bridge.h"
+#include "gnc-hooks.h"
+#include "qofinstance-p.h"
+#include "qofsession.h"
 #include "Account.h"
 #include "Split.h"
 #include "Transaction.h"
@@ -32,6 +36,8 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 
 /** Enhanced OpenCog-style AtomSpace implementation for cognitive accounting with Phase 2 ECAN */
 struct GncCognitiveAtomSpace {
@@ -128,6 +134,7 @@ struct GncCognitiveAtomSpace {
     std::map<guint64, std::string> atom_names;
     std::map<guint64, GncAttentionParams> attention_params;
     std::map<guint64, std::pair<gdouble, gdouble>> truth_values; // strength, confidence
+    std::map<guint64, std::vector<guint64>> link_outgoing; // proper link participants
     std::map<const Account*, guint64> account_atoms;
     std::vector<GncAccountCognitiveMessage> message_queue;
     std::map<std::string, GncCognitiveMessageHandler> message_handlers;
