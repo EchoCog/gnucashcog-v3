@@ -255,6 +255,10 @@ gnc_add_test(test-fincosys-bridge test-fincosys-bridge.cpp
 gnc_add_test(test-cognitive-fincosys-loader test-cognitive-fincosys-loader.cpp
   gtest_engine_INCLUDES gtest_old_engine_LIBS)
 
+# Lifecycle integration: book mapping, KVP, commit hooks, snapshots
+gnc_add_test(test-cognitive-lifecycle test-cognitive-lifecycle.cpp
+  gtest_engine_INCLUDES gtest_old_engine_LIBS)
+
 set(test_engine_SOURCES_DIST
         gtest-gnc-euro.cpp
         gtest-gnc-int128.cpp
@@ -281,6 +285,7 @@ set(test_engine_SOURCES_DIST
         test-phase6-comprehensive.cpp
         test-fincosys-bridge.cpp
         test-cognitive-fincosys-loader.cpp
+        test-cognitive-lifecycle.cpp
         test-commodities.cpp
         test-customer.c
         test-employee.c

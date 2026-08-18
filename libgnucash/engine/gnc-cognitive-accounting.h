@@ -206,6 +206,24 @@ gboolean gnc_cognitive_accounting_init(void);
 /** Shutdown cognitive accounting and cleanup AtomSpace */
 void gnc_cognitive_accounting_shutdown(void);
 
+/** @return TRUE if the cognitive AtomSpace is currently initialized */
+gboolean gnc_cognitive_accounting_is_initialized(void);
+
+/** @return TRUE if lifecycle hooks should run (env GNC_COGNITIVE_ENABLED=1/true/yes
+ *  or explicit enable via gnc_cognitive_set_enabled). Independent of init state. */
+gboolean gnc_cognitive_is_enabled(void);
+
+/** Explicitly enable/disable automatic cognitive lifecycle processing. */
+void gnc_cognitive_set_enabled(gboolean enabled);
+
+/**
+ * Register book open/close/save danglers so the cognitive engine auto-inits
+ * when GNC_COGNITIVE_ENABLED is set. Safe to call multiple times.
+ * Called automatically from gnc_cognitive_accounting_init() and from
+ * gnc_engine_init when the feature flag is on.
+ */
+void gnc_cognitive_register_lifecycle_hooks(void);
+
 /** Convert traditional account to AtomSpace representation
  * @param account The GnuCash account to convert
  * @return AtomSpace handle for the account atom
@@ -219,6 +237,56 @@ GncAtomHandle gnc_account_to_atomspace(const Account *account);
  */
 GncAtomHandle gnc_atomspace_create_hierarchy_link(GncAtomHandle parent_atom, 
                                                   GncAtomHandle child_atom);
+
+/** Map an entire book's account hierarchy into the AtomSpace.
+ *  Creates ConceptNodes and Inheritance/Hierarchy links for every account.
+ * @param book Book whose root account tree is walked
+ * @return Number of accounts mapped, or -1 on error
+ */
+gint gnc_book_to_atomspace(QofBook *book);
+
+/** Lifecycle: react to a committed (non-destroyed) transaction.
+ *  Runs PLN double-entry validation and ECAN attention updates for
+ *  every account touched by the transaction. No-op if not initialized.
+ */
+void gnc_cognitive_on_transaction_committed(Transaction *trans);
+
+/** Lifecycle: ensure account is represented in the AtomSpace (e.g. after create/edit). */
+void gnc_cognitive_on_account_changed(Account *account);
+
+/** Persist the current AtomSpace to a fincosys-ecosystem-sync/v1 JSON sidecar.
+ * @param path Destination file path
+ * @return TRUE on success
+ */
+gboolean gnc_cognitive_save_snapshot(const char *path);
+
+/** Load a fincosys-ecosystem-sync/v1 (or cognitive_atoms) JSON snapshot into the AtomSpace.
+ *  Initializes the cognitive engine if needed.
+ * @param path Source file path
+ * @return Number of atoms/links imported, or -1 on error
+ */
+gint gnc_cognitive_load_snapshot(const char *path);
+
+/** Dump a machine-readable cognitive state report (JSON string, caller g_free).
+ *  Includes capability matrix, atom counts, and ECAN fund stats.
+ */
+gchar *gnc_cognitive_dump_state_json(void);
+
+/** Human-readable capability matrix string (caller g_free). */
+gchar *gnc_cognitive_capability_report(void);
+
+/** @return Number of atoms currently in the cognitive AtomSpace (0 if not init). */
+guint gnc_atomspace_count_atoms(void);
+
+/** Retrieve stored outgoing participant handles for a link atom.
+ * @param link Link handle
+ * @param out_handles Caller-allocated array (may be NULL to query count only)
+ * @param n_handles In: capacity of out_handles; Out: number of participants
+ * @return TRUE if the link has stored outgoing set
+ */
+gboolean gnc_atomspace_get_outgoing(GncAtomHandle link,
+                                    GncAtomHandle *out_handles,
+                                    gsize *n_handles);
 
 /** @} */
 
@@ -284,6 +352,12 @@ void gnc_ecan_allocate_attention(Account **accounts, gint n_accounts);
  * @return TRUE on successful initialization
  */
 gboolean gnc_ecan_init_attention_economy(gdouble total_sti_funds, gdouble total_lti_funds);
+
+/** Set ECAN attention decay rate applied during attention updates (clamped 0.0–0.5). */
+void gnc_ecan_set_attention_decay_rate(gdouble rate);
+
+/** @return Current ECAN attention decay rate (0 if not initialized). */
+gdouble gnc_ecan_get_attention_decay_rate(void);
 
 /** Apply attention spreading from source to connected accounts
  * @param source_account Source account for attention spreading

@@ -20,6 +20,7 @@ bindings/python/app_utils.py
 bindings/python/deprecation.py
 bindings/python/example_scripts/account_analysis.py
 bindings/python/example_scripts/change_tax_code.py
+bindings/python/example_scripts/cognitive_ctypes_bridge.py
 bindings/python/example_scripts/ecan_resource_allocator.py
 bindings/python/example_scripts/export_account_totals.py
 bindings/python/example_scripts/fincosys_sync/cognitive_bridge.py

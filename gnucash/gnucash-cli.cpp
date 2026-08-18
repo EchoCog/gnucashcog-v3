@@ -69,6 +69,10 @@ namespace Gnucash {
 
         boost::optional <std::string> m_import_fincosys_sync;
         boost::optional <std::string> m_export_fincosys_sync;
+
+        bool m_cognitive_dump = false;
+        bool m_cognitive_capabilities = false;
+        bool m_cognitive_validate = false;
     };
 
 }
@@ -138,12 +142,23 @@ may be specified to describe some saved options.\n"
     ("export-fincosys-sync", bpo::value (&m_export_fincosys_sync),
      _("Used with --import-fincosys-sync: after importing, re-export the "
        "cognitive AtomSpace's full atom/link set (in the same schema) to "
-       "this path. The cognitive AtomSpace has no on-disk persistence of "
-       "its own, so this is how its post-import state survives past "
-       "process exit, e.g. to hand a merged snapshot back to "
-       "fincosys-atomspace-builder or gnucashm.\n"));
+       "this path. Also used as the sidecar path for book-linked cognitive "
+       "snapshots (*.cognitive.json) when saving with GNC_COGNITIVE_ENABLED.\n"));
     m_opt_desc_display->add (fincosys_options);
     m_opt_desc_all.add (fincosys_options);
+
+    bpo::options_description cognitive_options(_("Cognitive Accounting Options"));
+    cognitive_options.add_options()
+    ("cognitive-dump", bpo::bool_switch (&m_cognitive_dump),
+     _("Dump machine-readable cognitive state JSON (schema "
+       "gnucashcog-cognitive-state/v1). Use --output-file to write to disk.\n"))
+    ("cognitive-capabilities", bpo::bool_switch (&m_cognitive_capabilities),
+     _("Print the cognitive capability matrix (what is real vs simulated).\n"))
+    ("cognitive-validate", bpo::bool_switch (&m_cognitive_validate),
+     _("Map the book (optional datafile) into the AtomSpace and report PLN "
+       "double-entry confidence stats as JSON. Use --output-file to write.\n"));
+    m_opt_desc_display->add (cognitive_options);
+    m_opt_desc_all.add (cognitive_options);
 }
 
 int
@@ -239,6 +254,15 @@ Gnucash::GnucashCli::start ([[maybe_unused]] int argc, [[maybe_unused]] char **a
 
     if (m_import_fincosys_sync)
         return Gnucash::import_fincosys_sync (m_import_fincosys_sync, m_export_fincosys_sync);
+
+    if (m_cognitive_capabilities)
+        return Gnucash::cognitive_capability_report ();
+
+    if (m_cognitive_dump)
+        return Gnucash::cognitive_dump_state (m_output_file);
+
+    if (m_cognitive_validate)
+        return Gnucash::cognitive_validate_book (m_file_to_load, m_output_file);
 
     std::cerr << _("Missing command or option") << "\n\n"
               << *m_opt_desc_display.get() << std::endl;

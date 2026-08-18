@@ -624,9 +624,14 @@ gboolean gnc_meta_cognitive_apply_config(const GncCognitiveArchConfig *config)
     g_message("Applied new cognitive architecture configuration");
     g_debug("New config: learning_rate=%.3f, attention_decay=%.3f, sti_funds=%.1f",
            config->base_learning_rate, config->attention_decay_rate, config->sti_funds);
-    
-    // TODO: Actually apply these configuration changes to the running systems
-    // This would involve updating ECAN parameters, PLN thresholds, etc.
+
+    /* Push safe parameters into the live ECAN economy when AtomSpace is up. */
+    if (gnc_cognitive_accounting_is_initialized()) {
+        gdouble sti = config->sti_funds > 0.0 ? config->sti_funds : 1000.0;
+        gdouble lti = config->lti_funds > 0.0 ? config->lti_funds : 1000.0;
+        gnc_ecan_init_attention_economy(sti, lti);
+        gnc_ecan_set_attention_decay_rate(config->attention_decay_rate);
+    }
     
     return TRUE;
 }
@@ -643,6 +648,15 @@ gboolean gnc_meta_cognitive_rollback_config(void)
     // Restore previous configuration
     current_global_config = config_history.back();
     config_history.pop_back();
+
+    if (gnc_cognitive_accounting_is_initialized()) {
+        gdouble sti = current_global_config.sti_funds > 0.0
+                          ? current_global_config.sti_funds : 1000.0;
+        gdouble lti = current_global_config.lti_funds > 0.0
+                          ? current_global_config.lti_funds : 1000.0;
+        gnc_ecan_init_attention_economy(sti, lti);
+        gnc_ecan_set_attention_decay_rate(current_global_config.attention_decay_rate);
+    }
     
     g_message("Rolled back to previous cognitive architecture configuration");
     

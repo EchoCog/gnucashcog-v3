@@ -2,12 +2,56 @@
           GnuCash Cognitive Engine README
           
 Advanced Neural-Symbolic Accounting System
-🎉 DISTRIBUTED AGENTIC COGNITIVE GRAMMAR NETWORK v3.x COMPLETE! 🎉
+(gnucashcog-v3 — cognitive features are additive and feature-flagged)
 ------------------------------------------------------------
+
+> **Honest status:** Core cognitive libraries and tests build without OpenCog/ggml.
+> Production readiness is tracked in
+> [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md).
+> Phase “COMPLETE” banners describe scaffolding, not full product UX.
+
+## Quick start (library + cognitive tests)
+
+```bash
+# Configure library-only (no GUI) with simulated cognitive backends
+cmake -G Ninja -B build \
+  -DWITH_GNUCASH=OFF -DWITH_SQL=OFF -DWITH_AQBANKING=OFF \
+  -DWITH_OFX=OFF -DWITH_PYTHON=OFF -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --target gnc-engine
+# Cognitive unit tests (subset)
+cmake --build build --target test-cognitive-accounting \
+  test-cognitive-lifecycle test-fincosys-bridge test-tensor-network
+cd build && ctest -R 'test-cognitive|test-fincosys|test-tensor|test-meta|test-ko6ml|test-neural|test-phase6|test-ontogenesis' --output-on-failure
+```
+
+### Enable cognitive lifecycle on a book
+
+```bash
+export GNC_COGNITIVE_ENABLED=1
+# Opening a book registers AtomSpace mapping; saving writes <file>.cognitive.json
+```
+
+### CLI (when built with `WITH_GNUCASH=ON`)
+
+```bash
+gnucash-cli --cognitive-capabilities
+gnucash-cli --cognitive-dump --output-file state.json
+gnucash-cli --cognitive-validate /path/to/book.gnucash
+gnucash-cli --import-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.json \
+            --export-fincosys-sync /tmp/merged.json
+```
+
+### Python interim bridge
+
+See `bindings/python/example_scripts/fincosys_sync/` and
+`bindings/python/example_scripts/cognitive_ctypes_bridge.py` for a ctypes/CLI
+bridge until SWIG exports land.
 
 ## 🧠 Cognitive Architecture Overview
 
-GnuCashCog transforms traditional double-entry bookkeeping into a **distributed cognitive tensor network** that learns, adapts, and evolves. This implementation creates a "living grammar of cognition" where financial data flows through specialized neural-symbolic nodes.
+GnuCashCog extends traditional double-entry bookkeeping with an optional
+**cognitive engine** (AtomSpace + PLN + ECAN + tensor path). Classic bookkeeping
+remains the source of truth for amounts; cognitive metadata is additive.
 
 ```mermaid
 graph TD
