@@ -353,6 +353,12 @@ void gnc_ecan_allocate_attention(Account **accounts, gint n_accounts);
  */
 gboolean gnc_ecan_init_attention_economy(gdouble total_sti_funds, gdouble total_lti_funds);
 
+/** Set ECAN attention decay rate applied during attention updates (clamped 0.0–0.5). */
+void gnc_ecan_set_attention_decay_rate(gdouble rate);
+
+/** @return Current ECAN attention decay rate (0 if not initialized). */
+gdouble gnc_ecan_get_attention_decay_rate(void);
+
 /** Apply attention spreading from source to connected accounts
  * @param source_account Source account for attention spreading
  * @param connected_accounts Array of connected accounts

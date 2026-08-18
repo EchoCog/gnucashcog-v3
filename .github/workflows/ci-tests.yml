@@ -370,7 +370,59 @@ jobs:
         uses: actions/deploy-pages@v4
 
   ###########################################################################
-  # cognitive-demo — Build cognitive-accounting-demo target
+  # cognitive-engine — library-only build + cognitive gtests (no OpenCog)
+  ###########################################################################
+  cognitive-engine:
+    runs-on: ubuntu-latest
+    name: Cognitive Engine Tests
+    permissions:
+      contents: read
+    env:
+      TZ: America/Los_Angeles
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - run: sudo apt-get update
+      - name: Install dependencies
+        run: >
+          sudo apt-get install -y
+          gettext cmake libxslt-dev xsltproc ninja-build
+          libboost-all-dev guile-3.0-dev
+          libdbi-dev libdbd-sqlite3 googletest libgtest-dev
+          libglib2.0-dev libxml2-dev libicu-dev zlib1g-dev
+          libsecret-1-dev libwebkit2gtk-4.1-dev
+          language-pack-en language-pack-fr
+      - name: Configure library-only
+        run: |
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DWITH_GNUCASH=OFF -DWITH_SQL=OFF -DWITH_AQBANKING=OFF \
+            -DWITH_OFX=OFF -DWITH_PYTHON=OFF \
+            -DCMAKE_BUILD_TYPE=Debug \
+            $GITHUB_WORKSPACE
+      - name: Build gnc-engine and cognitive tests
+        run: |
+          cd build
+          ninja gnc-engine \
+            test-cognitive-accounting \
+            test-cognitive-lifecycle \
+            test-cognitive-primitives \
+            test-ko6ml-translation \
+            test-tensor-network \
+            test-neural-symbolic-kernels \
+            test-meta-cognitive \
+            test-ontogenesis-bridge \
+            test-phase6-comprehensive \
+            test-fincosys-bridge \
+            test-cognitive-fincosys-loader
+      - name: Run cognitive ctest subset
+        run: |
+          cd build
+          ctest --output-on-failure -R \
+            'test-cognitive|test-fincosys|test-tensor|test-meta|test-ko6ml|test-neural|test-phase6|test-ontogenesis'
+
+  ###########################################################################
+  # cognitive-demo — optional full-tree smoke (non-blocking)
   ###########################################################################
   cognitive-demo:
     runs-on: ubuntu-latest

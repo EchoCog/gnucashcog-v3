@@ -41,6 +41,10 @@
 #include <gnc-fincosys-bridge.h>
 #include <gnc-cognitive-accounting.h>
 #include <gnc-cognitive-fincosys-loader.h>
+#include <Account.h>
+#include <Transaction.h>
+#include <Split.h>
+#include <engine-helpers.h>
 
 #include <boost/locale.hpp>
 #include <cstring>
@@ -573,5 +577,174 @@ Gnucash::import_fincosys_sync (const bo_str& sync_file, const bo_str& export_fil
     }
 
     gnc_cognitive_accounting_shutdown ();
+    return rv;
+}
+
+int
+Gnucash::cognitive_dump_state (const bo_str& output_file)
+{
+    if (!gnc_cognitive_accounting_init ())
+    {
+        std::cerr << _("Failed to initialize the cognitive AtomSpace") << std::endl;
+        return 1;
+    }
+
+    gchar *json = gnc_cognitive_dump_state_json ();
+    if (!json)
+    {
+        std::cerr << _("Failed to dump cognitive state") << std::endl;
+        gnc_cognitive_accounting_shutdown ();
+        return 1;
+    }
+
+    int rv = 0;
+    if (output_file && !output_file->empty ())
+    {
+        GError *error = nullptr;
+        if (!g_file_set_contents (output_file->c_str (), json, -1, &error))
+        {
+            std::cerr << bl::format (bl::translate ("Failed to write {1}: {2}"))
+                          % *output_file % (error ? error->message : "unknown error")
+                      << std::endl;
+            if (error)
+                g_error_free (error);
+            rv = 1;
+        }
+        else
+            std::cout << bl::format (bl::translate ("Wrote cognitive state to {1}."))
+                          % *output_file << std::endl;
+    }
+    else
+        std::cout << json;
+
+    g_free (json);
+    gnc_cognitive_accounting_shutdown ();
+    return rv;
+}
+
+int
+Gnucash::cognitive_capability_report (void)
+{
+    gchar *report = gnc_cognitive_capability_report ();
+    if (!report)
+        return 1;
+    std::cout << report;
+    g_free (report);
+    return 0;
+}
+
+int
+Gnucash::cognitive_validate_book (const bo_str& file_to_load,
+                                  const bo_str& output_file)
+{
+    gnc_prefs_init ();
+    qof_event_suspend ();
+
+    if (!gnc_cognitive_accounting_init ())
+    {
+        std::cerr << _("Failed to initialize the cognitive AtomSpace") << std::endl;
+        qof_event_resume ();
+        return 1;
+    }
+
+    QofSession *session = nullptr;
+    QofBook *book = nullptr;
+    gint mapped = 0;
+    gint validated = 0;
+    gdouble conf_sum = 0.0;
+
+    if (file_to_load && !file_to_load->empty ())
+    {
+        session = gnc_get_current_session ();
+        if (!session)
+        {
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return 1;
+        }
+        qof_session_begin (session, file_to_load->c_str (), SESSION_READ_ONLY);
+        if (qof_session_get_error (session) != ERR_BACKEND_NO_ERR)
+        {
+            std::cerr << _("Failed to open data file for cognitive validation") << std::endl;
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return cleanup_and_exit_with_failure (session);
+        }
+        qof_session_load (session, nullptr);
+        if (qof_session_get_error (session) != ERR_BACKEND_NO_ERR)
+        {
+            std::cerr << _("Failed to load data file for cognitive validation") << std::endl;
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return cleanup_and_exit_with_failure (session);
+        }
+        book = qof_session_get_book (session);
+        if (book)
+            mapped = gnc_book_to_atomspace (book);
+    }
+
+    /* Sample up to a modest number of recent transactions if a book is open. */
+    if (book)
+    {
+        Account *root = gnc_book_get_root_account (book);
+        if (root)
+        {
+            GList *accounts = gnc_account_get_descendants (root);
+            for (GList *an = accounts; an; an = an->next)
+            {
+                Account *acc = GNC_ACCOUNT (an->data);
+                if (!acc)
+                    continue;
+                for (GList *sn = xaccAccountGetSplitList (acc); sn; sn = sn->next)
+                {
+                    Split *split = GNC_SPLIT (sn->data);
+                    Transaction *tx = xaccSplitGetParent (split);
+                    if (!tx)
+                        continue;
+                    gdouble c = gnc_pln_validate_double_entry (tx);
+                    conf_sum += c;
+                    validated++;
+                    if (validated >= 500)
+                        break;
+                }
+                if (validated >= 500)
+                    break;
+            }
+            g_list_free (accounts);
+        }
+    }
+
+    gdouble avg = validated > 0 ? conf_sum / validated : 0.0;
+    GString *s = g_string_new (nullptr);
+    g_string_append (s, "{\n");
+    g_string_append (s, "  \"schema\": \"gnucashcog-validate/v1\",\n");
+    g_string_append_printf (s, "  \"accounts_mapped\": %d,\n", mapped);
+    g_string_append_printf (s, "  \"transactions_validated\": %d,\n", validated);
+    g_string_append_printf (s, "  \"average_pln_confidence\": %.6f,\n", avg);
+    g_string_append_printf (s, "  \"atom_count\": %u\n", gnc_atomspace_count_atoms ());
+    g_string_append (s, "}\n");
+
+    int rv = 0;
+    if (output_file && !output_file->empty ())
+    {
+        GError *error = nullptr;
+        if (!g_file_set_contents (output_file->c_str (), s->str, -1, &error))
+        {
+            std::cerr << bl::format (bl::translate ("Failed to write {1}: {2}"))
+                          % *output_file % (error ? error->message : "unknown error")
+                      << std::endl;
+            if (error)
+                g_error_free (error);
+            rv = 1;
+        }
+    }
+    else
+        std::cout << s->str;
+
+    g_string_free (s, TRUE);
+    gnc_cognitive_accounting_shutdown ();
+    if (session)
+        qof_session_destroy (session);
+    qof_event_resume ();
     return rv;
 }

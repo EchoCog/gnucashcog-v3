@@ -596,19 +596,23 @@ TEST_F(CognitiveAccountingTest, EnhancedUREPrediction)
 
 TEST_F(CognitiveAccountingTest, CognitiveAccountTypes)
 {
-    // Test setting and getting cognitive account types
+    // Cognitive types persist on the account via KVP
     gnc_account_set_cognitive_type(checking_account, GNC_COGNITIVE_ACCT_ADAPTIVE);
     
     GncCognitiveAccountType type = gnc_account_get_cognitive_type(checking_account);
-    EXPECT_EQ(type, GNC_COGNITIVE_ACCT_TRADITIONAL);
+    EXPECT_EQ(type, GNC_COGNITIVE_ACCT_ADAPTIVE);
     
-    // Test multiple flags
+    // Test multiple flags (bitmask)
     GncCognitiveAccountType multi_type = static_cast<GncCognitiveAccountType>(
         GNC_COGNITIVE_ACCT_PREDICTIVE | GNC_COGNITIVE_ACCT_ATTENTION);
     gnc_account_set_cognitive_type(expense_account, multi_type);
     
     GncCognitiveAccountType retrieved_type = gnc_account_get_cognitive_type(expense_account);
-    EXPECT_EQ(retrieved_type, GNC_COGNITIVE_ACCT_TRADITIONAL);
+    EXPECT_EQ(retrieved_type, multi_type);
+    EXPECT_TRUE(gnc_account_has_cognitive_behavior(expense_account,
+                                                   GNC_COGNITIVE_ACCT_PREDICTIVE));
+    EXPECT_TRUE(gnc_account_has_cognitive_behavior(expense_account,
+                                                   GNC_COGNITIVE_ACCT_ATTENTION));
 }
 
 TEST_F(CognitiveAccountingTest, CognitiveAccountDefaults)
