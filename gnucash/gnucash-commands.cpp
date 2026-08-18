@@ -51,6 +51,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <set>
 #include <gnc-report.h>
 #include <gnc-quotes.hpp>
 
@@ -683,12 +684,14 @@ Gnucash::cognitive_validate_book (const bo_str& file_to_load,
             mapped = gnc_book_to_atomspace (book);
     }
 
-    /* Sample up to a modest number of recent transactions if a book is open. */
+    /* Sample up to a modest number of transactions if a book is open.
+     * Deduplicate by transaction pointer: each txn appears once per split. */
     if (book)
     {
         Account *root = gnc_book_get_root_account (book);
         if (root)
         {
+            std::set<const Transaction *> seen_tx;
             GList *accounts = gnc_account_get_descendants (root);
             for (GList *an = accounts; an; an = an->next)
             {
@@ -699,7 +702,7 @@ Gnucash::cognitive_validate_book (const bo_str& file_to_load,
                 {
                     Split *split = GNC_SPLIT (sn->data);
                     Transaction *tx = xaccSplitGetParent (split);
-                    if (!tx)
+                    if (!tx || !seen_tx.insert (tx).second)
                         continue;
                     gdouble c = gnc_pln_validate_double_entry (tx);
                     conf_sum += c;
