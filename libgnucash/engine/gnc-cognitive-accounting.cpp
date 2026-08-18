@@ -19,6 +19,10 @@
 #include "gnc-cognitive-comms.h"
 #include "gnc-tensor-network.h"
 #include "gnc-neural-symbolic-kernels.h"
+#include "gnc-fincosys-bridge.h"
+#include "gnc-hooks.h"
+#include "qofinstance-p.h"
+#include "qofsession.h"
 #include "Account.h"
 #include "Split.h"
 #include "Transaction.h"
@@ -32,6 +36,8 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 
 /** Enhanced OpenCog-style AtomSpace implementation for cognitive accounting with Phase 2 ECAN */
 struct GncCognitiveAtomSpace {
@@ -128,6 +134,7 @@ struct GncCognitiveAtomSpace {
     std::map<guint64, std::string> atom_names;
     std::map<guint64, GncAttentionParams> attention_params;
     std::map<guint64, std::pair<gdouble, gdouble>> truth_values; // strength, confidence
+    std::map<guint64, std::vector<guint64>> link_outgoing; // proper link participants
     std::map<const Account*, guint64> account_atoms;
     std::vector<GncAccountCognitiveMessage> message_queue;
     std::map<std::string, GncCognitiveMessageHandler> message_handlers;
@@ -219,15 +226,29 @@ struct GncCognitiveAtomSpace {
         std::string link_name = "HierarchyLink:" + 
                                std::to_string(parent_handle) + "->" + 
                                std::to_string(child_handle);
-        return create_atom(GNC_ATOM_ACCOUNT_HIERARCHY, link_name);
+        guint64 handle = create_atom(GNC_ATOM_ACCOUNT_HIERARCHY, link_name);
+        if (handle != 0) {
+            link_outgoing[handle] = {parent_handle, child_handle};
+        }
+        return handle;
+    }
+
+    void set_link_outgoing(guint64 handle, std::initializer_list<guint64> participants) {
+        if (handle != 0)
+            link_outgoing[handle] = std::vector<guint64>(participants);
     }
 #endif
 };
 
 static std::unique_ptr<GncCognitiveAtomSpace> g_atomspace = nullptr;
 
-/* Cognitive account type storage using KVP - for future implementation */
-// TODO: Implement KVP storage when proper KVP API is available
+/* Feature flag / lifecycle state */
+static gboolean g_cognitive_explicit_enable = FALSE;
+static gboolean g_cognitive_explicit_disable = FALSE;
+static gboolean g_lifecycle_hooks_registered = FALSE;
+static gchar *g_cognitive_snapshot_path = nullptr;
+
+#define GNC_COGNITIVE_TYPE_KVP_KEY "cognitive-type"
 // static const char* COGNITIVE_TYPE_KEY = "cognitive-accounting-type";
 
 /********************************************************************\
@@ -275,6 +296,10 @@ GncAtomHandle gnc_atomspace_create_evaluation_link(GncAtomHandle predicate_atom,
                            std::to_string(account_atom);
     
     GncAtomHandle link_handle = g_atomspace->create_atom(GNC_ATOM_EVALUATION_LINK, link_name);
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    if (link_handle != 0)
+        g_atomspace->set_link_outgoing(link_handle, {predicate_atom, account_atom});
+#endif
     
     // Set truth value for the evaluation
     gnc_atomspace_set_truth_value(link_handle, truth_value, 0.9);
@@ -297,7 +322,12 @@ GncAtomHandle gnc_atomspace_create_inheritance_link(GncAtomHandle child_atom,
                            std::to_string(child_atom) + "->" + 
                            std::to_string(parent_atom);
     
-    return g_atomspace->create_atom(GNC_ATOM_INHERITANCE_LINK, link_name);
+    GncAtomHandle link_handle = g_atomspace->create_atom(GNC_ATOM_INHERITANCE_LINK, link_name);
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    if (link_handle != 0)
+        g_atomspace->set_link_outgoing(link_handle, {child_atom, parent_atom});
+#endif
+    return link_handle;
 }
 
 void gnc_atomspace_set_truth_value(GncAtomHandle atom_handle, 
@@ -470,8 +500,20 @@ gboolean gnc_cognitive_accounting_init(void)
 #ifdef HAVE_OPENCOG_COGSERVER
     gnc_cognitive_register_module(GNC_MODULE_COGSERVER);
 #endif
+
+    /* Default ECAN economy so attention wages can flow without a separate demo init. */
+    gnc_ecan_init_attention_economy(1000.0, 1000.0);
+
+    /* Ensure book lifecycle danglers are registered when engine is used. */
+    gnc_cognitive_register_lifecycle_hooks();
     
-    g_message("Cognitive accounting framework initialized with OpenCog integration");
+    g_message("Cognitive accounting framework initialized (%s AtomSpace backend)",
+#ifdef HAVE_OPENCOG_ATOMSPACE
+              "OpenCog"
+#else
+              "simulated"
+#endif
+    );
     return TRUE;
 }
 
@@ -495,7 +537,391 @@ void gnc_cognitive_accounting_shutdown(void)
     gnc_tensor_network_shutdown();
     
     g_atomspace.reset();
+    g_clear_pointer(&g_cognitive_snapshot_path, g_free);
     g_message("Cognitive accounting AtomSpace shutdown");
+}
+
+gboolean gnc_cognitive_accounting_is_initialized(void)
+{
+    return g_atomspace != nullptr;
+}
+
+gboolean gnc_cognitive_is_enabled(void)
+{
+    if (g_cognitive_explicit_disable)
+        return FALSE;
+    if (g_cognitive_explicit_enable)
+        return TRUE;
+
+    const gchar *env = g_getenv("GNC_COGNITIVE_ENABLED");
+    if (!env || !*env)
+        return FALSE;
+
+    if (g_ascii_strcasecmp(env, "1") == 0 ||
+        g_ascii_strcasecmp(env, "true") == 0 ||
+        g_ascii_strcasecmp(env, "yes") == 0 ||
+        g_ascii_strcasecmp(env, "on") == 0)
+        return TRUE;
+
+    return FALSE;
+}
+
+void gnc_cognitive_set_enabled(gboolean enabled)
+{
+    g_cognitive_explicit_enable = enabled;
+    g_cognitive_explicit_disable = !enabled;
+    if (enabled)
+        gnc_cognitive_register_lifecycle_hooks();
+}
+
+/* ---- Book lifecycle danglers ---- */
+
+static void
+cognitive_book_opened_cb(gpointer data, gpointer /*user_data*/)
+{
+    if (!gnc_cognitive_is_enabled())
+        return;
+
+    auto *session = static_cast<QofSession *>(data);
+    if (!session)
+        return;
+
+    if (!gnc_cognitive_accounting_is_initialized()) {
+        if (!gnc_cognitive_accounting_init())
+            return;
+    }
+
+    QofBook *book = qof_session_get_book(session);
+    if (book)
+        gnc_book_to_atomspace(book);
+
+    const char *path = qof_session_get_file_path(session);
+    if (path && *path) {
+        g_free(g_cognitive_snapshot_path);
+        g_cognitive_snapshot_path = g_strdup_printf("%s.cognitive.json", path);
+        if (g_file_test(g_cognitive_snapshot_path, G_FILE_TEST_IS_REGULAR))
+            gnc_cognitive_load_snapshot(g_cognitive_snapshot_path);
+    }
+}
+
+static void
+cognitive_book_saved_cb(gpointer data, gpointer /*user_data*/)
+{
+    if (!gnc_cognitive_accounting_is_initialized())
+        return;
+
+    auto *session = static_cast<QofSession *>(data);
+    gchar *path = nullptr;
+
+    if (g_cognitive_snapshot_path) {
+        path = g_strdup(g_cognitive_snapshot_path);
+    } else if (session) {
+        const char *file_path = qof_session_get_file_path(session);
+        if (file_path && *file_path)
+            path = g_strdup_printf("%s.cognitive.json", file_path);
+    }
+
+    if (path) {
+        gnc_cognitive_save_snapshot(path);
+        g_free(g_cognitive_snapshot_path);
+        g_cognitive_snapshot_path = g_strdup(path);
+        g_free(path);
+    }
+}
+
+static void
+cognitive_book_closed_cb(gpointer /*data*/, gpointer /*user_data*/)
+{
+    if (!gnc_cognitive_accounting_is_initialized())
+        return;
+    gnc_cognitive_accounting_shutdown();
+}
+
+void gnc_cognitive_register_lifecycle_hooks(void)
+{
+    if (g_lifecycle_hooks_registered)
+        return;
+
+    gnc_hooks_init();
+    gnc_hook_add_dangler(HOOK_BOOK_OPENED, cognitive_book_opened_cb, nullptr, nullptr);
+    gnc_hook_add_dangler(HOOK_BOOK_SAVED, cognitive_book_saved_cb, nullptr, nullptr);
+    gnc_hook_add_dangler(HOOK_BOOK_CLOSED, cognitive_book_closed_cb, nullptr, nullptr);
+    g_lifecycle_hooks_registered = TRUE;
+    g_debug("Registered cognitive book lifecycle hooks");
+}
+
+gint gnc_book_to_atomspace(QofBook *book)
+{
+    g_return_val_if_fail(book != nullptr, -1);
+
+    if (!g_atomspace) {
+        g_warning("Cognitive accounting not initialized");
+        return -1;
+    }
+
+    Account *root = gnc_book_get_root_account(book);
+    if (!root)
+        return 0;
+
+    gint mapped = 0;
+    /* Include root + all descendants */
+    gnc_account_to_atomspace(root);
+    mapped++;
+
+    GList *descendants = gnc_account_get_descendants(root);
+    for (GList *node = descendants; node; node = node->next) {
+        Account *acct = GNC_ACCOUNT(node->data);
+        if (acct && gnc_account_to_atomspace(acct) != 0)
+            mapped++;
+    }
+    g_list_free(descendants);
+
+    g_message("Mapped %d account(s) from book into cognitive AtomSpace", mapped);
+    return mapped;
+}
+
+void gnc_cognitive_on_transaction_committed(Transaction *trans)
+{
+    if (!trans || !g_atomspace)
+        return;
+
+    /* PLN validation on the committed transaction (book is source of truth). */
+    gdouble confidence = gnc_pln_validate_double_entry(trans);
+
+    GList *splits = xaccTransGetSplitList(trans);
+    for (GList *node = splits; node; node = node->next) {
+        Split *split = GNC_SPLIT(node->data);
+        Account *account = xaccSplitGetAccount(split);
+        if (!account)
+            continue;
+
+        gnc_account_to_atomspace(account);
+        gnc_ecan_update_account_attention(account, trans);
+        gnc_account_adapt_cognitive_behavior(account, trans);
+    }
+
+    g_debug("Cognitive lifecycle: transaction committed (PLN confidence=%.3f)", confidence);
+}
+
+void gnc_cognitive_on_account_changed(Account *account)
+{
+    if (!account || !g_atomspace)
+        return;
+    gnc_account_to_atomspace(account);
+}
+
+gboolean gnc_cognitive_save_snapshot(const char *path)
+{
+    g_return_val_if_fail(path != nullptr && *path != '\0', FALSE);
+
+    if (!g_atomspace) {
+        g_warning("Cognitive accounting not initialized");
+        return FALSE;
+    }
+
+    gchar *json = gnc_cognitive_export_fincosys_json();
+    if (!json)
+        return FALSE;
+
+    GError *error = nullptr;
+    gboolean ok = g_file_set_contents(path, json, -1, &error);
+    g_free(json);
+    if (!ok) {
+        g_warning("Failed to write cognitive snapshot %s: %s",
+                  path, error ? error->message : "unknown error");
+        if (error)
+            g_error_free(error);
+        return FALSE;
+    }
+
+    g_message("Saved cognitive AtomSpace snapshot to %s", path);
+    return TRUE;
+}
+
+gint gnc_cognitive_load_snapshot(const char *path)
+{
+    g_return_val_if_fail(path != nullptr && *path != '\0', -1);
+
+    if (!g_atomspace) {
+        if (!gnc_cognitive_accounting_init())
+            return -1;
+    }
+
+    gchar *contents = nullptr;
+    GError *error = nullptr;
+    if (!g_file_get_contents(path, &contents, nullptr, &error)) {
+        g_warning("Failed to read cognitive snapshot %s: %s",
+                  path, error ? error->message : "unknown error");
+        if (error)
+            g_error_free(error);
+        return -1;
+    }
+
+    gint n = gnc_cognitive_import_fincosys_json(contents);
+    g_free(contents);
+    if (n >= 0)
+        g_message("Loaded %d atom(s)/link(s) from cognitive snapshot %s", n, path);
+    return n;
+}
+
+guint gnc_atomspace_count_atoms(void)
+{
+    if (!g_atomspace)
+        return 0;
+#ifdef HAVE_OPENCOG_ATOMSPACE
+    return static_cast<guint>(g_atomspace->handle_types.size());
+#else
+    return static_cast<guint>(g_atomspace->atom_types.size());
+#endif
+}
+
+gboolean gnc_atomspace_get_outgoing(GncAtomHandle link,
+                                    GncAtomHandle *out_handles,
+                                    gsize *n_handles)
+{
+    g_return_val_if_fail(n_handles != nullptr, FALSE);
+    if (!g_atomspace || link == 0)
+        return FALSE;
+
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    auto it = g_atomspace->link_outgoing.find(link);
+    if (it == g_atomspace->link_outgoing.end())
+        return FALSE;
+
+    gsize count = it->second.size();
+    if (out_handles == nullptr) {
+        *n_handles = count;
+        return TRUE;
+    }
+
+    gsize to_copy = std::min(count, *n_handles);
+    for (gsize i = 0; i < to_copy; i++)
+        out_handles[i] = it->second[i];
+    *n_handles = count;
+    return TRUE;
+#else
+    (void)out_handles;
+    *n_handles = 0;
+    return FALSE;
+#endif
+}
+
+gchar *gnc_cognitive_capability_report(void)
+{
+    GString *s = g_string_new(nullptr);
+    g_string_append(s, "gnucashcog-v3 capability matrix\n");
+    g_string_append(s, "================================\n");
+    g_string_append_printf(s, "cognitive_enabled: %s\n",
+                           gnc_cognitive_is_enabled() ? "yes" : "no");
+    g_string_append_printf(s, "atomspace_initialized: %s\n",
+                           gnc_cognitive_accounting_is_initialized() ? "yes" : "no");
+#ifdef HAVE_OPENCOG_ATOMSPACE
+    g_string_append(s, "atomspace_backend: opencog\n");
+#else
+    g_string_append(s, "atomspace_backend: simulated\n");
+#endif
+#ifdef HAVE_OPENCOG_PLN
+    g_string_append(s, "pln_backend: opencog\n");
+#else
+    g_string_append(s, "pln_backend: simulated\n");
+#endif
+#ifdef HAVE_OPENCOG_ATTENTION
+    g_string_append(s, "ecan_backend: opencog\n");
+#else
+    g_string_append(s, "ecan_backend: simulated\n");
+#endif
+#ifdef HAVE_GGML
+    g_string_append(s, "tensor_backend: ggml\n");
+#else
+    g_string_append(s, "tensor_backend: cpp_fallback\n");
+#endif
+#ifdef HAVE_JSON_GLIB
+    g_string_append(s, "json_glib: yes\n");
+#else
+    g_string_append(s, "json_glib: no\n");
+#endif
+    g_string_append(s, "book_lifecycle_hooks: registered_when_init\n");
+    g_string_append(s, "transaction_commit_hook: active_when_initialized\n");
+    g_string_append(s, "cognitive_type_kvp: yes\n");
+    g_string_append(s, "atomspace_snapshot: fincosys_json_sidecar\n");
+    g_string_append(s, "http_server: no (in-process API only)\n");
+    g_string_append(s, "websocket_unity_ros: stub/experimental\n");
+    g_string_append(s, "ontogenesis_kernel: stub_until_OZC-272\n");
+    g_string_append_printf(s, "atom_count: %u\n", gnc_atomspace_count_atoms());
+    return g_string_free(s, FALSE);
+}
+
+gchar *gnc_cognitive_dump_state_json(void)
+{
+    gdouble sti_circ = 0.0, lti_circ = 0.0, sti_funds = 0.0, lti_funds = 0.0;
+    if (g_atomspace) {
+        gnc_ecan_get_system_stats(&sti_circ, &lti_circ, &sti_funds, &lti_funds);
+    }
+
+    GString *s = g_string_new(nullptr);
+    g_string_append(s, "{\n");
+    g_string_append(s, "  \"schema\": \"gnucashcog-cognitive-state/v1\",\n");
+    g_string_append_printf(s, "  \"initialized\": %s,\n",
+                           gnc_cognitive_accounting_is_initialized() ? "true" : "false");
+    g_string_append_printf(s, "  \"enabled\": %s,\n",
+                           gnc_cognitive_is_enabled() ? "true" : "false");
+#ifdef HAVE_OPENCOG_ATOMSPACE
+    g_string_append(s, "  \"atomspace_backend\": \"opencog\",\n");
+#else
+    g_string_append(s, "  \"atomspace_backend\": \"simulated\",\n");
+#endif
+#ifdef HAVE_GGML
+    g_string_append(s, "  \"tensor_backend\": \"ggml\",\n");
+#else
+    g_string_append(s, "  \"tensor_backend\": \"cpp_fallback\",\n");
+#endif
+    g_string_append_printf(s, "  \"atom_count\": %u,\n", gnc_atomspace_count_atoms());
+    g_string_append(s, "  \"ecan\": {\n");
+    g_string_append_printf(s, "    \"sti_in_circulation\": %.6f,\n", sti_circ);
+    g_string_append_printf(s, "    \"lti_in_circulation\": %.6f,\n", lti_circ);
+    g_string_append_printf(s, "    \"sti_fund_pool\": %.6f,\n", sti_funds);
+    g_string_append_printf(s, "    \"lti_fund_pool\": %.6f,\n", lti_funds);
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    g_string_append_printf(s, "    \"attention_decay_rate\": %.6f\n",
+                           g_atomspace ? g_atomspace->attention_decay_rate : 0.0);
+#else
+    g_string_append(s, "    \"attention_decay_rate\": 0.0\n");
+#endif
+    g_string_append(s, "  },\n");
+    g_string_append(s, "  \"capabilities\": {\n");
+    g_string_append(s, "    \"book_mapping\": true,\n");
+    g_string_append(s, "    \"transaction_hooks\": true,\n");
+    g_string_append(s, "    \"kvp_cognitive_types\": true,\n");
+    g_string_append(s, "    \"fincosys_snapshot\": true,\n");
+    g_string_append(s, "    \"http_server\": false,\n");
+    g_string_append(s, "    \"unity_ros\": false\n");
+    g_string_append(s, "  }\n");
+    g_string_append(s, "}\n");
+    return g_string_free(s, FALSE);
+}
+
+void gnc_ecan_set_attention_decay_rate(gdouble rate)
+{
+    if (!g_atomspace)
+        return;
+    if (rate < 0.0)
+        rate = 0.0;
+    if (rate > 0.5)
+        rate = 0.5;
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    g_atomspace->attention_decay_rate = rate;
+#endif
+}
+
+gdouble gnc_ecan_get_attention_decay_rate(void)
+{
+#ifndef HAVE_OPENCOG_ATOMSPACE
+    if (!g_atomspace)
+        return 0.0;
+    return g_atomspace->attention_decay_rate;
+#else
+    return 0.0;
+#endif
 }
 
 GncAtomHandle gnc_account_to_atomspace(const Account *account)
@@ -1452,10 +1878,12 @@ void gnc_ecan_update_account_attention(Account *account,
     if (params.lti > 50.0 && params.activity_level > 1.0) {
         params.vlti += 0.001;
     }
-    
-    // Attention decay over time
-    params.sti *= (1.0 - g_atomspace->attention_decay_rate);
-    params.activity_level *= 0.98; // Gradual activity decay
+
+    /* Soft activity fade only — full STI/LTI decay is handled by periodic
+     * gnc_ecan_apply_attention_decay / economy cycles, not on every commit.
+     * Applying the full decay rate here made single-transaction updates
+     * net-negative and broke fund-conservation intuition. */
+    params.activity_level *= 0.995;
     
     // Update legacy compatibility fields
     params.importance = (params.sti + params.lti * 10.0) / 11.0;
@@ -2974,9 +3402,16 @@ gdouble gnc_ure_transaction_validity(const Transaction *transaction)
 void gnc_account_set_cognitive_type(Account *account, GncCognitiveAccountType cognitive_type)
 {
     g_return_if_fail(account != nullptr);
-    
-    // TODO: Store cognitive type in account KVP when KVP API is available
-    // For now, we'll manage this in the AtomSpace only
+
+    /* Persist cognitive type on the account via KVP so it survives save/reload. */
+    {
+        GValue v = G_VALUE_INIT;
+        g_value_init(&v, G_TYPE_INT64);
+        g_value_set_int64(&v, static_cast<gint64>(cognitive_type));
+        qof_instance_set_kvp(QOF_INSTANCE(account), &v, 1, GNC_COGNITIVE_TYPE_KVP_KEY);
+        g_value_unset(&v);
+        qof_instance_set_dirty(QOF_INSTANCE(account));
+    }
     
     // Initialize cognitive behaviors based on type
     if (g_atomspace) {
@@ -3017,7 +3452,8 @@ void gnc_account_set_cognitive_type(Account *account, GncCognitiveAccountType co
             
             // Create cognitive type atom for pattern tracking
             std::string type_name = "CognitiveAccountType:" + 
-                                   std::string(xaccAccountGetName(account)) + ":" +
+                                   std::string(xaccAccountGetName(account) ?
+                                               xaccAccountGetName(account) : "unnamed") + ":" +
                                    std::to_string(cognitive_type);
             
             GncAtomHandle type_atom = g_atomspace->create_atom(GNC_ATOM_CONCEPT_NODE, type_name);
@@ -3032,10 +3468,17 @@ void gnc_account_set_cognitive_type(Account *account, GncCognitiveAccountType co
 GncCognitiveAccountType gnc_account_get_cognitive_type(const Account *account)
 {
     g_return_val_if_fail(account != nullptr, GNC_COGNITIVE_ACCT_TRADITIONAL);
-    
-    // TODO: Retrieve cognitive type from account KVP when KVP API is available
-    // For now, return traditional type as default
-    return GNC_COGNITIVE_ACCT_TRADITIONAL;
+
+    GValue v = G_VALUE_INIT;
+    g_value_init(&v, G_TYPE_INT64);
+    g_value_set_int64(&v, static_cast<gint64>(GNC_COGNITIVE_ACCT_TRADITIONAL));
+    qof_instance_get_kvp(QOF_INSTANCE(account), &v, 1, GNC_COGNITIVE_TYPE_KVP_KEY);
+    gint64 stored = g_value_get_int64(&v);
+    g_value_unset(&v);
+
+    if (stored < 0)
+        return GNC_COGNITIVE_ACCT_TRADITIONAL;
+    return static_cast<GncCognitiveAccountType>(stored);
 }
 
 // Enhanced cognitive account behavior analysis

@@ -48,5 +48,12 @@ namespace Gnucash {
                      const bo_str& run_report);
     int import_fincosys_sync (const bo_str& sync_file,
                               const bo_str& export_file);
+    /** Dump cognitive capability/state JSON (no datafile required). */
+    int cognitive_dump_state (const bo_str& output_file);
+    /** Print human-readable capability matrix. */
+    int cognitive_capability_report (void);
+    /** Load optional datafile, map book, run PLN validation summary. */
+    int cognitive_validate_book (const bo_str& file_to_load,
+                                 const bo_str& output_file);
 }
 #endif

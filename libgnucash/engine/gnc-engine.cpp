@@ -33,6 +33,7 @@
 #include "TransactionP.hpp"
 #include "gnc-commodity.h"
 #include "gnc-pricedb-p.h"
+#include "gnc-cognitive-accounting.h"
 
 /** gnc file backend library name */
 #define GNC_LIB_NAME "gncmod-backend-xml"
@@ -120,6 +121,10 @@ gnc_engine_init(int argc, char ** argv)
     gnc_engine_init_part1();
     gnc_engine_init_part2();
     gnc_engine_init_part3(argc, argv);
+
+    /* Register cognitive book open/save/close danglers. Callbacks are
+     * no-ops unless GNC_COGNITIVE_ENABLED or gnc_cognitive_set_enabled. */
+    gnc_cognitive_register_lifecycle_hooks();
 }
 
 void
@@ -129,6 +134,8 @@ gnc_engine_init_static(int argc, char ** argv)
 
     gnc_engine_init_part1();
     gnc_engine_init_part3(argc, argv);
+
+    gnc_cognitive_register_lifecycle_hooks();
 }
 
 

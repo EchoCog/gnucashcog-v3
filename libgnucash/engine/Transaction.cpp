@@ -59,6 +59,7 @@
 #include <qofinstance-p.h>
 #include "gncInvoice.h"
 #include "gncOwner.h"
+#include "gnc-cognitive-accounting.h"
 
 /* Notes about xaccTransBeginEdit(), xaccTransCommitEdit(), and
  *  xaccTransRollback():
@@ -1610,6 +1611,16 @@ xaccTransCommitEdit (Transaction *trans)
     {
         trans->date_entered = gnc_time(nullptr);
         qof_instance_set_dirty(QOF_INSTANCE(trans));
+    }
+
+    /* Cognitive lifecycle: PLN validate + ECAN attention while the
+     * transaction is still alive and not being destroyed. Feature is
+     * additive and only runs when the AtomSpace is already initialized
+     * (e.g. via GNC_COGNITIVE_ENABLED book-open hooks or explicit init). */
+    if (!qof_instance_get_destroying(trans) &&
+        gnc_cognitive_accounting_is_initialized())
+    {
+        gnc_cognitive_on_transaction_committed(trans);
     }
 
     trans->txn_type = TXN_TYPE_UNCACHED;

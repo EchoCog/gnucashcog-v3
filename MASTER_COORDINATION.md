@@ -6,20 +6,29 @@
 
 This document serves as the central coordination point for the **Distributed Agentic Cognitive Grammar Network** — a revolutionary system that transforms traditional accounting into a neural-symbolic cognitive architecture.
 
-## 🎯 Project Status: COMPLETE
+## 🎯 Project Status: SCAFFOLDING → SHIPPABLE (in progress)
 
-All six development phases have been successfully implemented, creating a fully functional cognitive accounting system that demonstrates emergent intelligence, adaptive learning, and distributed cognitive processing.
+Phases 1–6 delivered **library scaffolding** and demos. Product completeness is
+tracked by the honest matrix in
+[COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) — **not** by
+phase “COMPLETE” banners alone.
 
-## 📊 Phase Completion Status
+**v3.0 must-haves:** green cognitive tests without OpenCog/ggml; feature-flagged
+book lifecycle; KVP + snapshot persistence; fincosys CLI; PLN/ECAN on fixtures;
+docs match reality.
 
-| Phase | Title | Status | Documentation |
-|-------|-------|--------|---------------|
-| **Phase 1** | Cognitive Primitives & Foundational Hypergraph Encoding | ✅ COMPLETE | [PHASE1_KO6ML_TRANSLATION.md](PHASE1_KO6ML_TRANSLATION.md) |
-| **Phase 2** | ECAN Attention Allocation & Resource Kernel Construction | ✅ COMPLETE | [COGNITIVE_ACCOUNTING.md](COGNITIVE_ACCOUNTING.md) |
-| **Phase 3** | Neural-Symbolic Synthesis via Custom ggml Kernels | ✅ COMPLETE | [PHASE3_NEURAL_SYMBOLIC_SYNTHESIS.md](PHASE3_NEURAL_SYMBOLIC_SYNTHESIS.md) |
-| **Phase 4** | Distributed Cognitive Mesh API & Embodiment Layer | ✅ COMPLETE | [PHASE4_API_DOCUMENTATION.md](PHASE4_API_DOCUMENTATION.md) |
-| **Phase 5** | Recursive Meta-Cognition & Evolutionary Optimization | ✅ COMPLETE | [PHASE5_IMPLEMENTATION.md](PHASE5_IMPLEMENTATION.md) |
-| **Phase 6** | Rigorous Testing, Documentation, and Cognitive Unification | ✅ COMPLETE | [PHASE6_IMPLEMENTATION.md](PHASE6_IMPLEMENTATION.md) |
+## 📊 Phase Completion Status (historical scaffolding)
+
+| Phase | Title | Scaffolding | Production readiness | Documentation |
+|-------|-------|-------------|----------------------|---------------|
+| **Phase 1** | Cognitive Primitives & Hypergraph Encoding | ✅ API + tests | **library** | [PHASE1_KO6ML_TRANSLATION.md](PHASE1_KO6ML_TRANSLATION.md) |
+| **Phase 2** | ECAN Attention & Resource Kernel | ✅ API + tests | **library / simulated** | [COGNITIVE_ACCOUNTING.md](COGNITIVE_ACCOUNTING.md) |
+| **Phase 3** | Neural-Symbolic ggml Kernels | ✅ API + tests | **library / fallback** | [PHASE3_NEURAL_SYMBOLIC_SYNTHESIS.md](PHASE3_NEURAL_SYMBOLIC_SYNTHESIS.md) |
+| **Phase 4** | Distributed Mesh API & Embodiment | ✅ in-process API | **partial** (no real HTTP/Unity/ROS) | [PHASE4_API_DOCUMENTATION.md](PHASE4_API_DOCUMENTATION.md) |
+| **Phase 5** | Meta-Cognition & Evolution | ✅ API + apply/rollback | **library** (ontogenesis stub) | [PHASE5_IMPLEMENTATION.md](PHASE5_IMPLEMENTATION.md) |
+| **Phase 6** | Testing & Unification | ✅ comprehensive tests | **in progress** | [PHASE6_IMPLEMENTATION.md](PHASE6_IMPLEMENTATION.md) |
+
+See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) for current claims.
 
 ## 🏗️ Architecture Overview
 
