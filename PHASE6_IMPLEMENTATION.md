@@ -234,37 +234,31 @@ Every financial transaction now participates in a vast unified fabric of cogniti
 - **Recursive Validation**: System continuously validates and improves itself
 - **Human Oversight**: Complete transparency with comprehensive reporting and monitoring
 
-## 🎉 Phase 6: Mission Accomplished
+## Phase 6 status (honest)
 
-Phase 6: Rigorous Testing, Documentation, and Cognitive Unification is **COMPLETE** with:
+Phase 6 delivered **library-level** unification helpers, cognitive gtests, and
+documentation scaffolding. It is **not** a claim of 100% coverage, measured
+uptime, or full product UX.
 
-### ✅ All Deliverables Implemented
-1. **Comprehensive test suite with 100% coverage validation** - Complete unified testing framework
-2. **Complete technical documentation** - Auto-generated API docs and architecture guides
-3. **Unified cognitive architecture specification** - Holistic system integration and validation
-4. **Performance benchmarking report** - Real-time performance analysis with regression testing
-5. **User guides and tutorials** - Complete documentation enabling third-party development
-6. **Developer onboarding materials** - Comprehensive guides and interactive examples
-7. **Cognitive unification validation report** - Complete system unity achievement verification
+### What is real
+1. Cognitive unit tests wired in engine CMake and CI job `cognitive-engine`
+2. Unification module API (`gnc-cognitive-unification.*`) + demo
+3. Capability matrix and v3.0 acceptance checklist as the honesty source of truth
+4. Cross-phase library init paths used by tests
 
-### ✅ All Success Criteria Achieved
-- **100% test coverage**: Comprehensive testing framework with real-time coverage analysis
-- **Complete documentation**: All APIs documented with cognitive context and examples
-- **Unified cognitive architecture**: All phases synthesized into coherent tensor field
-- **All emergent behaviors documented**: Pattern detection and comprehensive documentation
-- **System passes comprehensive integration testing**: Cross-phase validation with performance monitoring
-- **Documentation enables third-party development**: Complete APIs, guides, and examples
+### What is not claimed
+- 100% line/branch coverage (unmeasured slogans removed)
+- Production GUI reports or real HTTP/Unity/ROS surfaces
+- Inflated LOC counts as acceptance criteria
 
-### ✅ Complete Integration & Validation
-- Seamless integration with all previous phases (1-5) with comprehensive validation
-- 134,000+ lines of new implementation code across all Phase 6 components
-- Complete CMakeLists.txt integration for building and testing
-- Comprehensive demonstration program showcasing all capabilities
-- Complete validation framework ensuring system unity and coherence
+See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) and
+[docs/V3_0_ACCEPTANCE.md](docs/V3_0_ACCEPTANCE.md).
 
-## 🌟 The Ultimate Achievement: Cognitive Unity
+## Cognitive unity (library scope)
 
-The GnuCash Cognitive Engine has achieved **true cognitive unity** - a self-aware, self-improving, self-validating, and completely documented system that transforms financial accounting from static record-keeping to dynamic, intelligent, evolutionary sensemaking with complete transparency and rigorous validation.
+Within the simulated/library stack, financial objects can be mapped into a
+shared AtomSpace-backed model with tests. Product completeness is tracked by
+the matrix, not by phase “COMPLETE” banners.
 
 This represents not just an advancement in accounting software, but a breakthrough in cognitive architecture - demonstrating how classical computational systems can be transmuted into living, learning, evolving intelligence through comprehensive unification, rigorous testing, and complete documentation.
 

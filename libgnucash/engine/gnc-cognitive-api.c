@@ -33,7 +33,7 @@ typedef struct {
     gint websocket_port;
     GHashTable *endpoints;          /**< Map of path -> handler function */
     GHashTable *websocket_connections; /**< Map of connection_id -> GncWebSocketConnection */
-    GHashTable *registered_agents;  /**< Map of agent_id -> agent data */
+    GHashTable *registered_agents;  /**< Map of agent_id -> agent_type (owned strings) */
     GncApiMetrics metrics;
     gint64 start_time;
     GMutex api_mutex;
@@ -496,11 +496,10 @@ GncApiResponse* gnc_api_register_agent(const GncApiRequest *request)
     
     gchar *agent_id = g_uuid_string_random();
     
-    // Store agent registration
-    GHashTable *agent_data = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-    g_hash_table_insert(agent_data, g_strdup("agent_type"), g_strdup(agent_type));
-    g_hash_table_insert(agent_data, g_strdup("registration_time"), g_strdup_printf("%ld", time(NULL)));
-    g_hash_table_insert(g_api_state.registered_agents, g_strdup(agent_id), agent_data);
+    /* Store agent_id -> agent_type string only. Value destroyer is g_free;
+     * do not nest GHashTables here (mixed types broke shutdown free). */
+    g_hash_table_insert(g_api_state.registered_agents, g_strdup(agent_id),
+                        g_strdup(agent_type));
     
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
