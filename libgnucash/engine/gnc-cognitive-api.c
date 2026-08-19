@@ -111,7 +111,25 @@ static gchar* extract_path_param(const gchar *path, const gchar *pattern, const 
     return NULL;
 }
 
-/** Initialize the Cognitive API server */
+/** Free a WebSocket connection object stored in the connections table. */
+static void
+websocket_connection_free (gpointer data)
+{
+    GncWebSocketConnection *conn = data;
+    if (!conn)
+        return;
+    g_free (conn->connection_id);
+    g_free (conn->agent_type);
+    if (conn->subscriptions)
+        g_hash_table_destroy (conn->subscriptions);
+    g_free (conn);
+}
+
+/** Initialize the Cognitive API server.
+ *
+ *  Note: this is an in-process handler registry, not a listen/accept HTTP
+ *  server. Network transport is deferred (v3.2+).
+ */
 gboolean gnc_cognitive_api_init(gint port, gint websocket_port)
 {
     g_mutex_lock(&g_api_state.api_mutex);
@@ -131,14 +149,18 @@ gboolean gnc_cognitive_api_init(gint port, gint websocket_port)
     g_api_state.http_port = port;
     g_api_state.websocket_port = websocket_port;
     g_api_state.endpoints = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-    g_api_state.websocket_connections = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    g_api_state.websocket_connections = g_hash_table_new_full(
+        g_str_hash, g_str_equal, g_free, websocket_connection_free);
     g_api_state.registered_agents = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     
     // Initialize performance metrics
     memset(&g_api_state.metrics, 0, sizeof(GncApiMetrics));
     g_api_state.start_time = g_get_real_time();
+
+    /* Mark initialized before registering handlers so register_handler accepts them. */
+    g_api_state.initialized = TRUE;
     
-    // Register default endpoints
+    // Register default endpoints (in-process dispatch table)
     gnc_cognitive_api_register_handler("GET", "/api/v1/cognitive/state", gnc_api_get_cognitive_state);
     gnc_cognitive_api_register_handler("POST", "/api/v1/cognitive/process", gnc_api_process_cognitive_task);
     gnc_cognitive_api_register_handler("GET", "/api/v1/attention/allocation", gnc_api_get_attention_allocation);
@@ -147,8 +169,6 @@ gboolean gnc_cognitive_api_init(gint port, gint websocket_port)
     gnc_cognitive_api_register_handler("GET", "/api/v1/network/status", gnc_api_get_network_status);
     gnc_cognitive_api_register_handler("POST", "/api/v1/transactions/submit", gnc_api_submit_transaction);
     gnc_cognitive_api_register_handler("GET", "/api/v1/accounts/{id}", gnc_api_get_account);
-    
-    g_api_state.initialized = TRUE;
     
     g_mutex_unlock(&g_api_state.api_mutex);
     return TRUE;
@@ -163,10 +183,10 @@ void gnc_cognitive_api_shutdown(void)
         g_mutex_unlock(&g_api_state.api_mutex);
         return;
     }
-    
-    if (g_api_state.server_running) {
-        gnc_cognitive_api_stop_server();
-    }
+
+    /* Clear running flag here — do not call stop_server while holding the
+     * same non-recursive GMutex (that deadlocked TearDown in tests). */
+    g_api_state.server_running = FALSE;
     
     gnc_websocket_shutdown();
     gnc_unity_shutdown();
@@ -176,6 +196,9 @@ void gnc_cognitive_api_shutdown(void)
     g_hash_table_destroy(g_api_state.endpoints);
     g_hash_table_destroy(g_api_state.websocket_connections);
     g_hash_table_destroy(g_api_state.registered_agents);
+    g_api_state.endpoints = NULL;
+    g_api_state.websocket_connections = NULL;
+    g_api_state.registered_agents = NULL;
     
     g_api_state.initialized = FALSE;
     
@@ -594,10 +617,11 @@ GncApiResponse* gnc_api_get_account(const GncApiRequest *request)
     return response;
 }
 
-/** WebSocket initialization stub */
+/** WebSocket initialization stub — no listen/accept server in v3.0 (deferred v3.2+). */
 gboolean gnc_websocket_init(gint port)
 {
-    // WebSocket implementation placeholder
+    g_debug ("gnc_websocket_init(%d): stub only; real WebSocket server deferred to v3.2+",
+             port);
     return TRUE;
 }
 
@@ -650,8 +674,12 @@ gboolean gnc_websocket_send_event(const gchar *connection_id, const gchar *event
     return g_hash_table_lookup(g_api_state.websocket_connections, connection_id) != NULL;
 }
 
-/** Unity3D integration stubs */
-gboolean gnc_unity_init(void) { return TRUE; }
+/** Unity3D integration stubs — experimental/deferred; not a production surface. */
+gboolean gnc_unity_init(void)
+{
+    g_debug ("gnc_unity_init: stub only; Unity embodiment deferred");
+    return TRUE;
+}
 void gnc_unity_shutdown(void) {}
 
 GncUnityComponent* gnc_unity_create_component(const gchar *component_type, gdouble position[3], gdouble rotation[4])
@@ -682,8 +710,14 @@ gchar* gnc_unity_process_command(const gchar *command)
     return g_strdup("{\"result\":\"command_processed\",\"status\":\"ok\"}");
 }
 
-/** ROS integration stubs */
-gboolean gnc_ros_init(const gchar *node_name, const gchar *node_namespace) { return TRUE; }
+/** ROS integration stubs — experimental/deferred; not a production surface. */
+gboolean gnc_ros_init(const gchar *node_name, const gchar *node_namespace)
+{
+    g_debug ("gnc_ros_init(%s, %s): stub only; ROS embodiment deferred",
+             node_name ? node_name : "(null)",
+             node_namespace ? node_namespace : "(null)");
+    return TRUE;
+}
 void gnc_ros_shutdown(void) {}
 
 gboolean gnc_ros_create_service(const gchar *service_name, const gchar *service_type) { return TRUE; }
@@ -702,7 +736,7 @@ gchar* gnc_ros_process_sensor_data(const gchar *sensor_data)
     return g_strdup("{\"analysis\":\"processed\",\"confidence\":0.95,\"patterns\":3}");
 }
 
-/** Web agent interface stubs */
+/** Web agent interface stubs (in-process registry only; not a network product). */
 gboolean gnc_web_agent_init(void) { return TRUE; }
 void gnc_web_agent_shutdown(void) {}
 
@@ -715,10 +749,24 @@ GncWebAgent* gnc_web_agent_register(const gchar *agent_type, GHashTable *capabil
     agent->is_authenticated = FALSE;
     agent->capabilities = g_hash_table_ref(capabilities);
     agent->last_activity = g_get_real_time();
+
+    /* Track id so unregister can distinguish unknown agents. Caller still owns
+     * the GncWebAgent struct; table stores a marker value only. */
+    if (g_api_state.initialized && g_api_state.registered_agents && agent->agent_id)
+    {
+        g_hash_table_insert (g_api_state.registered_agents,
+                             g_strdup (agent->agent_id),
+                             g_strdup (agent_type ? agent_type : "agent"));
+    }
     return agent;
 }
 
-gboolean gnc_web_agent_unregister(const gchar *agent_id) { return TRUE; }
+gboolean gnc_web_agent_unregister(const gchar *agent_id)
+{
+    if (!agent_id || !g_api_state.initialized || !g_api_state.registered_agents)
+        return FALSE;
+    return g_hash_table_remove (g_api_state.registered_agents, agent_id);
+}
 
 gchar* gnc_web_agent_process_command(const gchar *agent_id, const gchar *command)
 {

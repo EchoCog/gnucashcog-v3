@@ -1,8 +1,19 @@
 # Phase 4: Distributed Cognitive Mesh API Documentation
 
+> **Honesty banner (v3.0):** This document describes the **target design** and
+> the **in-process library API**. There is **no** listen/accept HTTP or
+> WebSocket server in-tree. Unity3D and ROS sections are **experimental /
+> deferred** adapter sketches — do not treat them as shipped product features.
+> See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) and
+> [PHASE4_IMPLEMENTATION_SUMMARY.md](PHASE4_IMPLEMENTATION_SUMMARY.md).
+
 ## Overview
 
-The Phase 4 Distributed Cognitive Mesh API provides REST endpoints, WebSocket communication, and integration bindings for Unity3D, ROS, and web agents to enable embodied cognitive applications.
+Phase 4 exposes cognitive state through an **in-process** request/response and
+GraphQL helper layer suitable for embedding and tests. Network REST/WebSocket
+servers and Unity3D/ROS embodiment bindings remain **deferred (v3.2+)**; the
+sections below that document ports, live sockets, or game/robot runtimes are
+design notes, not a claim of production readiness.
 
 ## Architecture
 
