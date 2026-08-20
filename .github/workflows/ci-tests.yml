@@ -390,7 +390,7 @@ jobs:
           libboost-all-dev guile-3.0-dev
           libdbi-dev libdbd-sqlite3 googletest libgtest-dev
           libglib2.0-dev libxml2-dev libicu-dev zlib1g-dev
-          libsecret-1-dev libwebkit2gtk-4.1-dev
+          libsecret-1-dev libwebkit2gtk-4.1-dev libjson-glib-dev
           language-pack-en language-pack-fr
       - name: Configure library-only
         run: |
@@ -403,10 +403,12 @@ jobs:
       - name: Build gnc-engine and cognitive tests
         run: |
           cd build
+          # test-cognitive-api is only defined when JSON-GLib is present
           ninja gnc-engine \
             test-cognitive-accounting \
             test-cognitive-lifecycle \
             test-cognitive-primitives \
+            test-cognitive-api \
             test-ko6ml-translation \
             test-tensor-network \
             test-neural-symbolic-kernels \

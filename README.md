@@ -41,11 +41,27 @@ gnucash-cli --import-fincosys-sync data/fincosys_sync/gnucashcog_ecosystem_sync.
             --export-fincosys-sync /tmp/merged.json
 ```
 
-### Python interim bridge
+### Python interim bridge (until SWIG)
 
-See `bindings/python/example_scripts/fincosys_sync/` and
-`bindings/python/example_scripts/cognitive_ctypes_bridge.py` for a ctypes/CLI
-bridge until SWIG exports land.
+SWIG exports of the cognitive C API are **deferred**. Use the CLI subprocess
+bridge (preferred) or optional ctypes against `libgnc-engine`:
+
+```bash
+# Requires gnucash-cli on PATH (or GNUCASH_CLI=/path/to/gnucash-cli)
+python3 bindings/python/example_scripts/cognitive_ctypes_bridge.py capabilities
+python3 bindings/python/example_scripts/cognitive_ctypes_bridge.py dump /tmp/state.json
+python3 bindings/python/example_scripts/cognitive_ctypes_bridge.py validate book.gnucash
+python3 bindings/python/example_scripts/cognitive_ctypes_bridge.py import \
+  data/fincosys_sync/gnucashcog_ecosystem_sync.json /tmp/merged.json
+```
+
+Fincosys plan-only Python contract tests (no engine build required):
+
+```bash
+cd bindings/python/example_scripts/fincosys_sync && python3 -m pytest tests/ -q
+```
+
+See also `docs/FINCOSYS_ECOSYSTEM_SYNC.md`.
 
 ## 🧠 Cognitive Architecture Overview
 
