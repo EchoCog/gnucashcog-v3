@@ -67,3 +67,23 @@ asserts the plan comes out clean (no duplicate txids, no unknown account
 refs, no unbalanced transactions), so any future schema drift on either
 side of the repo boundary fails CI here instead of silently breaking the
 sync at apply time.
+
+## `commerce_shopify_rzl.json`
+
+A real `fincosys-commerce-sync/v1` document: 109 Shopify order-header
+records for Regima Zone Ltd (RZL), captured from the Shopify Admin API for
+the store `regima-zone.myshopify.com` over 2026-08-01 → 2026-09-04 and
+committed to `fincosys/entity-rzl` at
+`accounting/shopify/raw-json/2026-09-06_orders_2026-08-01_2026-09-04.json`.
+It is copied here verbatim.
+
+Two test modules use it as a cross-repo contract test:
+`tests/test_commerce_import.py` asserts every record books and the resulting
+plan is clean, and `tests/test_commerce_cognitive.py` walks the whole loop
+through to `cognitive_atoms.json` and asserts no evaluation references an
+atom the document does not declare. Regenerate it by copying the current
+version of that file from an `entity-rzl` checkout.
+
+Customer display names are present because they are part of the order record
+and the entity repositories are private; no addresses, emails or payment
+details are carried.
