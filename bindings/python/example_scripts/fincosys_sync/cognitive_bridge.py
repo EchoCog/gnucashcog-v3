@@ -50,6 +50,19 @@ CONFIDENCE_BALANCE_VALID_TRUE = 0.9
 CONFIDENCE_BALANCE_VALID_FALSE = 0.4
 CONFIDENCE_BALANCE_VALID_UNKNOWN = 0.6
 
+# Confidence for a transaction booked from a commerce record (QuickBooks /
+# Shopify -- see commerce_import.py). These have no balance_valid provenance
+# flag: they are not bank-statement rows, and their splits are derived from
+# the document's own decomposition rather than balanced against a statement
+# chain. What does vary is whether the capture they came from is complete.
+#
+# The values match accospace's "extracted" and "partial_capture" truth-value
+# tiers, so a hypergraph built from these atoms and one built by accospace's
+# CommerceRecordLoader from the same records agree on confidence rather than
+# disagreeing for no reason.
+CONFIDENCE_COMMERCE_COMPLETE = 0.9
+CONFIDENCE_COMMERCE_PARTIAL = 0.6
+
 
 def _entity_atom_id(entity_code: str) -> str:
     return f"entity:{entity_code}"
@@ -57,6 +70,10 @@ def _entity_atom_id(entity_code: str) -> str:
 
 def _account_atom_id(account_code: str) -> str:
     return f"account:{account_code}"
+
+
+def _counterparty_atom_id(source: str, external_id: str) -> str:
+    return f"counterparty:{source}:{external_id}"
 
 
 def _tx_atom_id(txid: str) -> str:
@@ -179,13 +196,24 @@ def build_atoms(plan: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[s
             strength = _clamp01(1.0 - (abs(total) / gross))
 
         metadata = t.get("metadata") or {}
-        balance_valid = metadata.get("balance_valid")
-        if balance_valid is True:
-            confidence = CONFIDENCE_BALANCE_VALID_TRUE
-        elif balance_valid is False:
-            confidence = CONFIDENCE_BALANCE_VALID_FALSE
+        commerce_source = metadata.get("commerce_source")
+        if commerce_source:
+            # A commerce document, not a bank-statement row: balance_valid
+            # does not apply. What matters is whether the capture it came
+            # from is complete (see commerce_import.py).
+            confidence = (
+                CONFIDENCE_COMMERCE_PARTIAL
+                if metadata.get("capture_status") == "partial"
+                else CONFIDENCE_COMMERCE_COMPLETE
+            )
         else:
-            confidence = CONFIDENCE_BALANCE_VALID_UNKNOWN
+            balance_valid = metadata.get("balance_valid")
+            if balance_valid is True:
+                confidence = CONFIDENCE_BALANCE_VALID_TRUE
+            elif balance_valid is False:
+                confidence = CONFIDENCE_BALANCE_VALID_FALSE
+            else:
+                confidence = CONFIDENCE_BALANCE_VALID_UNKNOWN
 
         evaluations.append(
             {
@@ -199,6 +227,40 @@ def build_atoms(plan: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[s
                 },
             }
         )
+
+        # -- commerce counterparties ---------------------------------------
+        # A commerce document names who was billed. That party is a real
+        # concept in the graph -- it is how "which customers does this
+        # entity bill, and does any of them also appear on the bank side"
+        # becomes answerable -- so give it a ConceptNode of its own and an
+        # EvaluationLink to the transaction, deduplicated across documents.
+        counterparty_id = metadata.get("counterparty_external_id")
+        if commerce_source and counterparty_id:
+            atom_id = _counterparty_atom_id(commerce_source, str(counterparty_id))
+            add_atom(
+                {
+                    "atom_type": "GNC_ATOM_CONCEPT_NODE",
+                    "id": atom_id,
+                    "label": metadata.get("counterparty_name") or str(counterparty_id),
+                    "attributes": {
+                        "commerce_source": commerce_source,
+                        "external_id": str(counterparty_id),
+                        "role": "counterparty",
+                    },
+                }
+            )
+            evaluations.append(
+                {
+                    "atom_type": "GNC_ATOM_EVALUATION_LINK",
+                    "id": f"billed:{atom_id}->{txid}",
+                    "predicate": "billed_counterparty",
+                    "participants": [atom_id, _tx_atom_id(txid)],
+                    "truth_value": {
+                        "strength": 1.0,
+                        "confidence": round(confidence, 6),
+                    },
+                }
+            )
 
     return atoms, evaluations
 

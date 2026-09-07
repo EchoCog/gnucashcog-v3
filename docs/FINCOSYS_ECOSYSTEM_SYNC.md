@@ -1,8 +1,26 @@
 # Fincosys Ecosystem Sync — Status
 
 This documents how gnucashcog-v3 connects to the wider fincosys financial
-ecosystem: `RegimA-Zone/fincosys-atomspace-builder`, `cogpy/fincosys`,
+ecosystem: `fincosys/accospace`, `cogpy/fincosys`,
 `fincosys/helix`, `cogpy/revstream1`, and `cogpy/ad-res-j7`.
+
+
+> **Repository move (2026-09-06).** The AtomSpace builder is now
+> `fincosys/accospace`. It was `RegimA-Zone/fincosys-atomspace-builder`, and
+> sections below still name it that where they describe events from that
+> time. The pip package and import name are unchanged --
+> `fincosys-atomspace-builder` / `atomspace_builder` -- so only checkout
+> paths and repository references move, and
+> `scripts/sync_fincosys_ecosystem.py` accepts a sibling checkout under
+> either directory name.
+>
+> This does not on its own unblock the sync workflow. gnucashcog-v3 lives in
+> `EchoCog`, so `fincosys/accospace` is still a private cross-org checkout
+> that `github.token` cannot read; the workflow still needs an
+> `ECOSYSTEM_SYNC_TOKEN` PAT, now scoped to the `fincosys` org rather than
+> `RegimA-Zone`. Since `fincosys/helix` was already on that list, one PAT
+> scoped to `fincosys` now covers two of the four cross-org checkouts
+> instead of one.
 
 ## What already exists
 
@@ -43,7 +61,7 @@ never runs on a schedule and never commits without an explicit run.
 ```bash
 # Local usage, with sibling checkouts of the repos above:
 python scripts/sync_fincosys_ecosystem.py \
-    --atomspace-builder-dir ../fincosys-atomspace-builder \
+    --atomspace-builder-dir ../accospace \
     --fincosys-data-dir ../fincosys/data \
     --helix-manifest ../helix/ecosystem/related_artifacts.json \
     --revstream1-data-dir ../revstream1/data_models \

@@ -17,7 +17,7 @@ This directory contains two independent scripts:
 
 ```
                      ┌──────────────────────────────┐
-                     │  fincosys-atomspace-builder   │
+                     │  accospace (atomspace_builder)│
                      │  GnuCashSyncExporter (feed)   │   (optional; format
                      │        sync_feed.json         │    documented below)
                      └───────────────┬───────────────┘
@@ -251,3 +251,65 @@ fincosys tracks without associated bank-statement extracts yet.
 `cognitive_bridge.py` then emitted 408 atoms (156 ConceptNodes + 252
 InheritanceLinks) and 22,055 `balanced_transaction` evaluations, all with
 `strength`/`confidence` in `[0, 1]`.
+
+## Commerce records (QuickBooks Online / Shopify)
+
+`commerce_import.py` is a second, independent input path. It reads
+`fincosys-commerce-sync/v1` documents — the QuickBooks and Shopify records
+written into the fincosys entity repositories (`fincosys/entity-rzl`, …)
+under each repo's `accounting/<source>/` canonical paths — and emits the
+same account/transaction shapes `sync_fincosys.py` plans and applies. The
+schema is specified in `fincosys/accospace`,
+`docs/COMMERCE_SYNC_SCHEMA.md`.
+
+```bash
+python3 commerce_import.py <entity-repo>/accounting/shopify/raw-json/*.json \
+    --out commerce_feed.json
+python3 sync_fincosys.py --feed commerce_feed.json --plan-only --out plan.json
+python3 cognitive_bridge.py --plan plan.json --out cognitive_atoms.json
+```
+
+`to_sync_records()` converts the emitted dicts into this repo's
+`AccountRec`/`TransactionRec` dataclasses, reusing `sync_fincosys.py`'s own
+`_account_from_dict`/`_transaction_from_dict` rather than duplicating the
+field mapping.
+
+### Why it books differently from the bank-statement path
+
+Bank-statement lines are **single-sided**, which is why that path invents
+`Imbalance-<entity>-<category>` placeholders to balance them. A sales order
+or invoice instead carries its own decomposition, so this books real
+double-entry against named accounts with no placeholder and no plug:
+
+```
+Dr  COMM-<entity>-AR          total
+    Cr  COMM-<entity>-REVENUE     subtotal
+    Cr  COMM-<entity>-SHIPPING    shipping
+    Cr  COMM-<entity>-TAX         tax
+```
+
+The identity `total == subtotal + shipping + tax` is checked per record, not
+assumed; a record that fails it is reported with its discrepancy rather than
+booked, because a document whose components don't reconcile to its own total
+is a data problem to surface. `sales_period` and `product_sales_summary`
+records are skipped with a reported count — they restate the same revenue as
+the orders, so booking them would double-count every sale.
+
+### What `cognitive_bridge.py` adds for commerce records
+
+Two things, both driven off the `metadata` the importer carries through:
+
+- **Counterparties become atoms.** A commerce document names who was billed,
+  so that party gets its own `GNC_ATOM_CONCEPT_NODE`
+  (`counterparty:<source>:<external_id>`, deduplicated across documents) and
+  a `billed_counterparty` `GNC_ATOM_EVALUATION_LINK` to the transaction.
+  This is what makes "which customers does this entity bill, and does any of
+  them also appear on the bank side" answerable from the atom document.
+
+- **Confidence comes from capture status, not `balance_valid`.** Commerce
+  records are not bank-statement rows and have no balance-chain provenance;
+  their splits come from the document's own decomposition. What varies is
+  whether the capture was complete. A partial capture is downgraded to
+  `CONFIDENCE_COMMERCE_PARTIAL`. Both tiers match accospace's
+  `extracted` / `partial_capture` truth values, so a hypergraph built from
+  these atoms and one built there from the same records agree.
