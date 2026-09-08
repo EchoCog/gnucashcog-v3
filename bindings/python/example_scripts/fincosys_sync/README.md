@@ -295,6 +295,33 @@ is a data problem to surface. `sales_period` and `product_sales_summary`
 records are skipped with a reported count — they restate the same revenue as
 the orders, so booking them would double-count every sale.
 
+### Tax basis
+
+Which identity applies depends on the record's `tax_basis` field:
+
+| `tax_basis` | Identity checked | Credited to revenue |
+|---|---|---|
+| `exclusive` (default, and what an absent field means) | `total == subtotal + shipping + tax` | `subtotal` |
+| `inclusive` | `total == subtotal + shipping` | `subtotal - tax` |
+
+On an inclusive record the tax is already **contained in** the stated
+subtotal. Crediting that subtotal to revenue *and* the tax to the liability
+would over-credit by the tax and the transaction would not balance, so the
+contained tax is netted out of revenue and the credits still sum to what the
+customer was charged.
+
+This is not hypothetical: accospace's Shopify normalizer stamps `inclusive`
+on the RegimA Zone orders predating its 2018 switch to exclusive pricing.
+Read as exclusive, each of those misses its own total by exactly its tax and
+is rejected — the orders go missing from the book rather than booking wrong,
+which is quieter and no better.
+
+A record declaring any other basis is rejected rather than guessed at: the
+two differ by the whole tax amount, so a wrong guess is a wrong ledger. Each
+booked transaction carries its basis in `metadata.tax_basis` — which is also
+what reaches the cognitive atoms below — and the run report counts records by
+basis.
+
 ### What `cognitive_bridge.py` adds for commerce records
 
 Two things, both driven off the `metadata` the importer carries through:
