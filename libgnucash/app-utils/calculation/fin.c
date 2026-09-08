@@ -1214,7 +1214,7 @@
 static double
 rnd (double x, unsigned places)
 {
-    static const size_t buflen = 50; /* make buffer large enough */
+    enum { buflen = 50 };            /* make buffer large enough */
     double r;
     char buf[buflen];
 

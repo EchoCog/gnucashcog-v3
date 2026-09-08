@@ -877,6 +877,22 @@ if (UNIX AND NOT APPLE)
     list(APPEND ASAN_TEST_OPTIONS detect_odr_violation=0)
   endif()
   string(REPLACE ";" ":" ASAN_TEST_OPTIONS "${ASAN_TEST_OPTIONS}")
+
+  # The ODR option has to reach the build as well as the tests. An Asan
+  # build runs guild under Asan to compile the Scheme sources
+  # (GncAddSchemeTargets.cmake passes ASAN_OPTIONS=${ASAN_BUILD_OPTIONS}),
+  # and loading the GnuCash Guile extension brings Boost's header-only
+  # globals in a second time, in an RTLD_LOCAL dlopen that the first copy
+  # cannot interpose. Asan sees two same-sized globals of one name and
+  # aborts on an ODR violation that is not one -- during `ninja`, before a
+  # single test has run, so the opt-out the tests already carry never gets
+  # the chance to apply. Honour the same option here rather than leaving
+  # the build as the one place it does not hold.
+  if (ODR)
+    set(ASAN_BUILD_OPTIONS "${ASAN_BUILD_OPTIONS}:detect_odr_violation=2")
+  else()
+    set(ASAN_BUILD_OPTIONS "${ASAN_BUILD_OPTIONS}:detect_odr_violation=0")
+  endif()
 endif()
 
 if (APPLE AND WITH_GNUCASH)
