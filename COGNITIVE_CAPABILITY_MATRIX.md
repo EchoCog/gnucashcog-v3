@@ -69,6 +69,8 @@ Do claim only what this matrix marks **production** or **library** with tests gr
 
 ## Related docs
 
+- `docs/V3_0_ACCEPTANCE.md` — v3.0 must-have checklist vs issue #37
 - `docs/FINCOSYS_ECOSYSTEM_SYNC.md` — ecosystem JSON contract
 - `COGNITIVE_ACCOUNTING.md` — design notes (may still contain historical phase language)
 - `MASTER_COORDINATION.md` — high-level roadmap (see honesty banner)
+- `PHASE4_IMPLEMENTATION_SUMMARY.md` — in-process API only; network/Unity/ROS deferred
