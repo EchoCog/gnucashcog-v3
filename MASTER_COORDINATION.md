@@ -28,7 +28,8 @@ docs match reality.
 | **Phase 5** | Meta-Cognition & Evolution | ✅ API + apply/rollback | **library** (ontogenesis stub) | [PHASE5_IMPLEMENTATION.md](PHASE5_IMPLEMENTATION.md) |
 | **Phase 6** | Testing & Unification | ✅ comprehensive tests | **in progress** | [PHASE6_IMPLEMENTATION.md](PHASE6_IMPLEMENTATION.md) |
 
-See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) for current claims.
+See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md) for current claims
+and [docs/V3_0_ACCEPTANCE.md](docs/V3_0_ACCEPTANCE.md) for the v3.0 must-have checklist.
 
 ## 🏗️ Architecture Overview
 

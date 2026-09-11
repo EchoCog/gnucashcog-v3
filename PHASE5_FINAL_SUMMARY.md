@@ -1,5 +1,8 @@
 # Phase 5 Implementation: Recursive Meta-Cognition & Evolutionary Optimization
 
+> **Honesty banner (v3.0):** Meta-cognition apply/rollback is **library**-grade; ontogenesis remains a **stub** until OZC-272. See [COGNITIVE_CAPABILITY_MATRIX.md](COGNITIVE_CAPABILITY_MATRIX.md).
+
+
 ## 🎯 Final Implementation Summary
 
 Phase 5 has been **successfully completed** with a comprehensive implementation of recursive meta-cognition and evolutionary optimization for the GnuCash Cognitive Engine. This represents the culmination of the Distributed Agentic Cognitive Grammar Network development cycle.
