@@ -187,3 +187,84 @@ truth value, and the manifest's raw numbers are namespaced under
 script inherits that behavior unchanged — do not strip the tagging when
 consuming its output, and do not cite `helix_self_reported` figures as
 verified case evidence.
+
+## Exporting a book's AtomSpace to accospace (2026-09-14)
+
+`--export-fincosys-sync` existed, but only as a sidecar of
+`--import-fincosys-sync`: given on its own it matched no branch in
+`gnucash-cli.cpp` and the command fell through to "Missing command or
+option". So the only way to produce the `gnucashcog_export.json` that
+`fincosys/accospace`'s `loaders/gnucashcog.py` reads was to import a sync
+document first and re-export the merge. There was no path from a real
+GnuCash book to that file at all -- and since the cognitive AtomSpace has no
+persistence of its own, a book's cognitive projection could not reach
+accospace by any route.
+
+The flag now stands alone (`Gnucash::export_fincosys_sync()` in
+`gnucash/gnucash-commands.cpp`). With a datafile it opens it **read-only**,
+maps it in with `gnc_book_to_atomspace()` and exports the whole atom/link
+set; without one it exports whatever a fresh init holds. Used together with
+`--import-fincosys-sync` the old behaviour is unchanged -- import first,
+then the merged re-export.
+
+```bash
+# book -> cognitive AtomSpace -> accospace
+gnucash-cli --export-fincosys-sync gnucashcog_export.json book.gnucash
+```
+
+**Verified end-to-end (2026-09-14)**, full `ninja` with
+`-DWITH_AQBANKING=OFF -DWITH_OFX=OFF -DWITH_SQL=OFF -DWITH_PYTHON=OFF`, no
+compile fixes needed. Against a book built by importing this ecosystem's
+own commerce feed (the 25 Shopify orders of `fincosys/entity-rzl`'s
+2026-09-14 capture, imported through gnucashm): `5 account(s) mapped, 129
+atom(s)`, written as a `fincosys-ecosystem-sync/v1` document with
+`"source": "gnucashcog-v3"`, 15 atoms and 64 links, the accounts appearing
+as `ConceptNode` `Account:Accounts Receivable` and the rest.
+`test-fincosys-bridge` still passes 15/15.
+
+### Known limitation: books written by gnucashm
+
+gnucashm persists its `GncOrganization` records through an XML backend
+module this fork does not have. Loading such a book here logs
+
+```
+ERROR <gnc.io> [gnc_counter_end_handler()] Unknown type: gnc:GncOrganization
+ERROR <gnc.backend.file.sixtp> Tag <gnc:GncOrganization> not allowed in current context.
+```
+
+and the parse gives up on the rest of the file, so only the root account
+survives. Exporting that book reports `1 account(s) mapped, 5 atom(s)` --
+technically correct, and small enough to notice, which is why the command
+prints the mapped count rather than just succeeding quietly.
+
+This is not caused by the change above: the pre-existing
+`--cognitive-validate` reports the same `accounts_mapped: 1` on the same
+book. The two forks' datafiles are not interchangeable once organizations
+are in play. Until `GncOrganization` exists here too, feed this fork books
+without organization records, or feed accospace the two forks' documents
+separately -- they land in disjoint node-ID namespaces (`GNCCOG_` vs. entity
+codes) and are designed to be loaded together.
+
+## Commerce records in more than one currency (2026-09-14)
+
+Syncing RegimA @ Dr H Ltd's QuickBooks ledger (see
+`fincosys/entity-regima-dr-h-uk`) produced the first commerce document
+stating two currencies: 257 GBP invoices and 10 EUR ones. Every account
+`bindings/python/example_scripts/fincosys_sync/commerce_import.py` creates
+is single-currency, and it used to create them in whichever currency it saw
+first and book everything into them, emitting a warning. So a EUR 15,869.82
+invoice became GBP 15,869.82 in the receivable -- a wrong number that no
+later reconciliation can tell apart from a real GBP balance, since the
+transaction still balances, and which would then flow on into the cognitive
+atoms as a confident, well-formed falsehood.
+
+It now rejects such a record instead, through the same rejection report that
+already handles a record whose components don't reconcile.
+`--per-currency-accounts` books them properly, into `COMM-<entity>-<CCY>-AR`
+and siblings. The document's primary currency keeps its existing unscoped
+codes under both modes, so a book already imported from a single-currency
+document is unaffected and re-imports idempotently.
+
+`tests/fixtures/commerce_quickbooks_rdh.json` is a real 19-record subset of
+that ledger (GBP and EUR, standard-rated, zero-rated and discounted
+invoices) and the suite checks both modes against it. 83 tests pass.

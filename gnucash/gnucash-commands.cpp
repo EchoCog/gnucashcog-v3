@@ -624,6 +624,98 @@ Gnucash::cognitive_dump_state (const bo_str& output_file)
 }
 
 int
+Gnucash::export_fincosys_sync (const bo_str& file_to_load, const bo_str& sync_file)
+{
+    if (!sync_file || sync_file->empty ())
+    {
+        std::cerr << _("Missing --export-fincosys-sync file parameter") << std::endl;
+        return 1;
+    }
+
+    gnc_prefs_init ();
+    qof_event_suspend ();
+
+    if (!gnc_cognitive_accounting_init ())
+    {
+        std::cerr << _("Failed to initialize the cognitive AtomSpace") << std::endl;
+        qof_event_resume ();
+        return 1;
+    }
+
+    /* A datafile is optional. Without one this exports whatever the
+     * cognitive engine holds on a fresh init (its bootstrap atoms); with
+     * one, the book is mapped in first, which is the case that matters --
+     * it is the only way a real ledger reaches accospace's
+     * loaders/gnucashcog.py, since the AtomSpace has no persistence of its
+     * own (see gnc-cognitive-accounting.h). */
+    QofSession *session = nullptr;
+    gint mapped = 0;
+    if (file_to_load && !file_to_load->empty ())
+    {
+        session = gnc_get_current_session ();
+        if (!session)
+        {
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return 1;
+        }
+        qof_session_begin (session, file_to_load->c_str (), SESSION_READ_ONLY);
+        if (qof_session_get_error (session) != ERR_BACKEND_NO_ERR)
+        {
+            std::cerr << _("Failed to open data file for fincosys sync export") << std::endl;
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return cleanup_and_exit_with_failure (session);
+        }
+        qof_session_load (session, nullptr);
+        if (qof_session_get_error (session) != ERR_BACKEND_NO_ERR)
+        {
+            std::cerr << _("Failed to load data file for fincosys sync export") << std::endl;
+            gnc_cognitive_accounting_shutdown ();
+            qof_event_resume ();
+            return cleanup_and_exit_with_failure (session);
+        }
+        QofBook *book = qof_session_get_book (session);
+        if (book)
+            mapped = gnc_book_to_atomspace (book);
+    }
+
+    gchar *json = gnc_cognitive_export_fincosys_json ();
+    if (json == nullptr)
+    {
+        std::cerr << _("Cognitive AtomSpace export failed unexpectedly.") << std::endl;
+        gnc_cognitive_accounting_shutdown ();
+        if (session)
+            qof_session_destroy (session);
+        qof_event_resume ();
+        return 1;
+    }
+
+    int rv = 0;
+    GError *error = nullptr;
+    if (!g_file_set_contents (sync_file->c_str (), json, -1, &error))
+    {
+        std::cerr << bl::format (bl::translate ("Failed to write {1}: {2}"))
+                      % *sync_file % (error ? error->message : "unknown error")
+                  << std::endl;
+        if (error)
+            g_error_free (error);
+        rv = 1;
+    }
+    else
+        std::cout << bl::format (bl::translate (
+            "Exported the cognitive AtomSpace ({1} account(s) mapped, {2} atom(s)) to {3}."))
+                      % mapped % gnc_atomspace_count_atoms () % *sync_file << std::endl;
+
+    g_free (json);
+    gnc_cognitive_accounting_shutdown ();
+    if (session)
+        qof_session_destroy (session);
+    qof_event_resume ();
+    return rv;
+}
+
+int
 Gnucash::cognitive_capability_report (void)
 {
     gchar *report = gnc_cognitive_capability_report ();
