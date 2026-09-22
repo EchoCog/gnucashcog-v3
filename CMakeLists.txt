@@ -838,6 +838,14 @@ if (MINGW)
 endif()
 
 if (APPLE)
+  # Upstream GnuCash carries this same line in this same block. clang folds
+  # the const-bounded arrays in fin.c and gnc-html.c to constant arrays and
+  # diagnoses the fold, which the -Werror above makes fatal. Suppressing it
+  # keeps those two files byte-identical to upstream, so merges from it stay
+  # clean; declaring their bounds as enum constants would fix the underlying
+  # VLAs instead, but upstream has not, and diverging here costs more than it
+  # buys.
+  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-gnu-folding-constant")
   execute_process(COMMAND clang --print-file-name=libclang_rt.asan_osx_dynamic.dylib
     OUTPUT_VARIABLE ASAN_DYNAMIC_LIB
     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -877,6 +885,22 @@ if (UNIX AND NOT APPLE)
     list(APPEND ASAN_TEST_OPTIONS detect_odr_violation=0)
   endif()
   string(REPLACE ";" ":" ASAN_TEST_OPTIONS "${ASAN_TEST_OPTIONS}")
+
+  # The ODR option has to reach the build as well as the tests. An Asan
+  # build runs guild under Asan to compile the Scheme sources
+  # (GncAddSchemeTargets.cmake passes ASAN_OPTIONS=${ASAN_BUILD_OPTIONS}),
+  # and loading the GnuCash Guile extension brings Boost's header-only
+  # globals in a second time, in an RTLD_LOCAL dlopen that the first copy
+  # cannot interpose. Asan sees two same-sized globals of one name and
+  # aborts on an ODR violation that is not one -- during `ninja`, before a
+  # single test has run, so the opt-out the tests already carry never gets
+  # the chance to apply. Honour the same option here rather than leaving
+  # the build as the one place it does not hold.
+  if (ODR)
+    set(ASAN_BUILD_OPTIONS "${ASAN_BUILD_OPTIONS}:detect_odr_violation=2")
+  else()
+    set(ASAN_BUILD_OPTIONS "${ASAN_BUILD_OPTIONS}:detect_odr_violation=0")
+  endif()
 endif()
 
 if (APPLE AND WITH_GNUCASH)

@@ -48,6 +48,10 @@ namespace Gnucash {
                      const bo_str& run_report);
     int import_fincosys_sync (const bo_str& sync_file,
                               const bo_str& export_file);
+    /** Map an optional datafile into the cognitive AtomSpace and export the
+     *  whole atom/link set as a fincosys-ecosystem-sync/v1 document. */
+    int export_fincosys_sync (const bo_str& file_to_load,
+                              const bo_str& sync_file);
     /** Dump cognitive capability/state JSON (no datafile required). */
     int cognitive_dump_state (const bo_str& output_file);
     /** Print human-readable capability matrix. */

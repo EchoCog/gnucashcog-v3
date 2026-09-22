@@ -498,7 +498,9 @@ described above:
   see `gnc_atomspace_create_inheritance_link()`) on a best-effort basis.
 
 The consumer lives in the external
-[`fincosys-atomspace-builder`](https://github.com/RegimA-Zone/fincosys-atomspace-builder)
+[`accospace`](https://github.com/fincosys/accospace) (formerly
+`RegimA-Zone/fincosys-atomspace-builder`; the pip package and import name are
+unchanged -- `fincosys-atomspace-builder` / `atomspace_builder`)
 repository: `atomspace_builder/loaders/gnucashcog.py` reads this export and
 maps every atom/link directly onto `HyperNode`/`HyperEdge` instances in a
 built AtomSpace hypergraph, alongside records synced from fincosys,

@@ -17,7 +17,7 @@ This directory contains two independent scripts:
 
 ```
                      ┌──────────────────────────────┐
-                     │  fincosys-atomspace-builder   │
+                     │  accospace (atomspace_builder)│
                      │  GnuCashSyncExporter (feed)   │   (optional; format
                      │        sync_feed.json         │    documented below)
                      └───────────────┬───────────────┘
@@ -251,3 +251,140 @@ fincosys tracks without associated bank-statement extracts yet.
 `cognitive_bridge.py` then emitted 408 atoms (156 ConceptNodes + 252
 InheritanceLinks) and 22,055 `balanced_transaction` evaluations, all with
 `strength`/`confidence` in `[0, 1]`.
+
+## Commerce records (QuickBooks Online / Shopify)
+
+`commerce_import.py` is a second, independent input path. It reads
+`fincosys-commerce-sync/v1` documents — the QuickBooks and Shopify records
+written into the fincosys entity repositories (`fincosys/entity-rzl`, …)
+under each repo's `accounting/<source>/` canonical paths — and emits the
+same account/transaction shapes `sync_fincosys.py` plans and applies. The
+schema is specified in `fincosys/accospace`,
+`docs/COMMERCE_SYNC_SCHEMA.md`.
+
+```bash
+python3 commerce_import.py <entity-repo>/accounting/shopify/raw-json/*.json \
+    --out commerce_feed.json
+python3 sync_fincosys.py --feed commerce_feed.json --plan-only --out plan.json
+python3 cognitive_bridge.py --plan plan.json --out cognitive_atoms.json
+```
+
+`to_sync_records()` converts the emitted dicts into this repo's
+`AccountRec`/`TransactionRec` dataclasses, reusing `sync_fincosys.py`'s own
+`_account_from_dict`/`_transaction_from_dict` rather than duplicating the
+field mapping.
+
+### Why it books differently from the bank-statement path
+
+Bank-statement lines are **single-sided**, which is why that path invents
+`Imbalance-<entity>-<category>` placeholders to balance them. A sales order
+or invoice instead carries its own decomposition, so this books real
+double-entry against named accounts with no placeholder and no plug:
+
+```
+Dr  COMM-<entity>-AR          total
+    Cr  COMM-<entity>-REVENUE     subtotal
+    Cr  COMM-<entity>-SHIPPING    shipping
+    Cr  COMM-<entity>-TAX         tax
+```
+
+The identity `total == subtotal + shipping + tax` is checked per record, not
+assumed; a record that fails it is reported with its discrepancy rather than
+booked, because a document whose components don't reconcile to its own total
+is a data problem to surface. `sales_period` and `product_sales_summary`
+records are skipped with a reported count — they restate the same revenue as
+the orders, so booking them would double-count every sale.
+
+### Tax basis
+
+Which identity applies depends on the record's `tax_basis` field:
+
+| `tax_basis` | Identity checked | Credited to revenue |
+|---|---|---|
+| `exclusive` (default, and what an absent field means) | `total == subtotal + shipping + tax` | `subtotal` |
+| `inclusive` | `total == subtotal + shipping` | `subtotal - tax` |
+
+On an inclusive record the tax is already **contained in** the stated
+subtotal. Crediting that subtotal to revenue *and* the tax to the liability
+would over-credit by the tax and the transaction would not balance, so the
+contained tax is netted out of revenue and the credits still sum to what the
+customer was charged.
+
+This is not hypothetical: accospace's Shopify normalizer stamps `inclusive`
+on the RegimA Zone orders predating its 2018 switch to exclusive pricing.
+Read as exclusive, each of those misses its own total by exactly its tax and
+is rejected — the orders go missing from the book rather than booking wrong,
+which is quieter and no better.
+
+A record declaring any other basis is rejected rather than guessed at: the
+two differ by the whole tax amount, so a wrong guess is a wrong ledger. Each
+booked transaction carries its basis in `metadata.tax_basis` — which is also
+what reaches the cognitive atoms below — and the run report counts records by
+basis.
+
+### Documents stating more than one currency
+
+Every account above is single-currency. A document stating two therefore has
+no single right set of accounts, and this is not a corner case: RegimA @ Dr H
+Ltd's QuickBooks ledger holds 257 GBP invoices and 10 EUR ones in one export.
+
+Booking a EUR total into a GBP receivable is worse than an unbooked record.
+The transaction still balances, so nothing downstream flags it; EUR 15,869.82
+simply becomes GBP 15,869.82 in the ledger, indistinguishable from a real GBP
+balance — and it then reaches the cognitive atoms below as a confident,
+well-formed falsehood.
+
+So a record outside the document's **primary currency** — the first one its
+bookable records state — is rejected, with its own currency and the
+document's named in the rejection, exactly as a record whose components don't
+reconcile is rejected.
+
+`--per-currency-accounts` books them properly instead, into accounts scoped
+by currency:
+
+```bash
+python3 commerce_import.py \
+    ../../../../entity-regima-dr-h-uk/accounting/qbo/raw-json/*.json \
+    --per-currency-accounts --out commerce_feed.json
+```
+
+```
+Dr  COMM-RDH-EUR-AR          total        # EUR invoices
+    Cr  COMM-RDH-EUR-REVENUE     subtotal
+Dr  COMM-RDH-AR              total        # GBP invoices, unchanged codes
+    Cr  COMM-RDH-REVENUE         subtotal
+```
+
+The primary currency keeps its unscoped codes under both modes. That is what
+makes the flag safe to turn on: a book already imported from a
+single-currency document sees the same account codes and the same txids, so
+re-importing stays a no-op rather than duplicating every account.
+
+`tests/test_commerce_import.py` ends with four cross-repo contract tests over
+real captured records. The Shopify ones
+(`tests/fixtures/commerce_shopify_rzl.json`) run `convert()` into
+`build_plan()` and assert the plan is clean and that booked receivable equals
+the sum of the documents' own totals. The QuickBooks ones
+(`tests/fixtures/commerce_quickbooks_rdh.json`, a real GBP+EUR ledger subset)
+do the same and additionally assert that each currency's receivable equals
+that currency's own stated totals — a cross-currency leak would still balance
+per transaction, so only the per-currency comparison catches it.
+
+### What `cognitive_bridge.py` adds for commerce records
+
+Two things, both driven off the `metadata` the importer carries through:
+
+- **Counterparties become atoms.** A commerce document names who was billed,
+  so that party gets its own `GNC_ATOM_CONCEPT_NODE`
+  (`counterparty:<source>:<external_id>`, deduplicated across documents) and
+  a `billed_counterparty` `GNC_ATOM_EVALUATION_LINK` to the transaction.
+  This is what makes "which customers does this entity bill, and does any of
+  them also appear on the bank side" answerable from the atom document.
+
+- **Confidence comes from capture status, not `balance_valid`.** Commerce
+  records are not bank-statement rows and have no balance-chain provenance;
+  their splits come from the document's own decomposition. What varies is
+  whether the capture was complete. A partial capture is downgraded to
+  `CONFIDENCE_COMMERCE_PARTIAL`. Both tiers match accospace's
+  `extracted` / `partial_capture` truth values, so a hypergraph built from
+  these atoms and one built there from the same records agree.
