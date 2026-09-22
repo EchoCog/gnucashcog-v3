@@ -140,10 +140,15 @@ may be specified to describe some saved options.\n"
        "ConceptNode/PredicateNode/InheritanceLink/EvaluationLink/HierarchyLink "
        "atoms). See docs/FINCOSYS_ECOSYSTEM_SYNC.md.\n"))
     ("export-fincosys-sync", bpo::value (&m_export_fincosys_sync),
-     _("Used with --import-fincosys-sync: after importing, re-export the "
-       "cognitive AtomSpace's full atom/link set (in the same schema) to "
-       "this path. Also used as the sidecar path for book-linked cognitive "
-       "snapshots (*.cognitive.json) when saving with GNC_COGNITIVE_ENABLED.\n"));
+     _("Export the cognitive AtomSpace's full atom/link set (Fincosys "
+       "Ecosystem Sync Schema v1) to this path -- this is what "
+       "fincosys/accospace's loaders/gnucashcog.py reads as "
+       "gnucashcog_export.json. On its own, a datafile given with --file-to-load "
+       "is mapped into the AtomSpace first (read-only) and then exported. "
+       "With --import-fincosys-sync, the import happens first and this is the "
+       "merged re-export. Also used as the sidecar path for book-linked "
+       "cognitive snapshots (*.cognitive.json) when saving with "
+       "GNC_COGNITIVE_ENABLED.\n"));
     m_opt_desc_display->add (fincosys_options);
     m_opt_desc_all.add (fincosys_options);
 
@@ -254,6 +259,13 @@ Gnucash::GnucashCli::start ([[maybe_unused]] int argc, [[maybe_unused]] char **a
 
     if (m_import_fincosys_sync)
         return Gnucash::import_fincosys_sync (m_import_fincosys_sync, m_export_fincosys_sync);
+
+    /* --export-fincosys-sync on its own: map the datafile (if given) into the
+     * cognitive AtomSpace and export it, rather than requiring an import to
+     * piggyback on. This is the direction accospace's loaders/gnucashcog.py
+     * consumes. */
+    if (m_export_fincosys_sync)
+        return Gnucash::export_fincosys_sync (m_file_to_load, m_export_fincosys_sync);
 
     if (m_cognitive_capabilities)
         return Gnucash::cognitive_capability_report ();
