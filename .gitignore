@@ -193,4 +193,22 @@ xcuserdata/
 messages.mo
 /.settings/
 /build/
+# '/build/' matches a directory named exactly 'build'.  CI writes its
+# out-of-source tree to 'build-test/', which slipped past and was
+# committed from a runner; '/build*/' covers every root-level build
+# directory without catching anything nested.
+/build*/
+# Compiled demo binaries built from the *-demo.cpp sources at the repo
+# root by the test-*.sh / build-*.sh scripts.  The sources keep their
+# .cpp extension, so this pattern never hides one.
+/cognitive-accounting-demo
+/meta-cognitive-demo
+/minimal-tensor-demo
+/neural-symbolic-synthesis-demo
+/phase1-cognitive-primitives-demo
+/phase1-ko6ml-roundtrip-demo
+/phase4-api-demo
+/phase6-comprehensive-demo
+/standalone-neural-symbolic-demo
+/tensor-network-demo
 *.LCK
