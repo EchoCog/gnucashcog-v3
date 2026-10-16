@@ -155,3 +155,31 @@ def test_entity_names_reach_the_plan_and_agree_with_the_entities_block():
     names = {a["code"]: a["name"] for a in plan["accounts"]}
     for code, legal_name in described.items():
         assert names[code] == legal_name
+
+
+def test_cognitive_bridge_names_entities_from_real_exporter_output():
+    """The bridge recognizes the exporter's entity roots, not just the fallback's.
+
+    The --data-dir loader codes an entity root ``ENTITY-<code>``; the
+    exporter codes it with the bare entity code.  The bridge used to look
+    only for the first, so on every feed-sourced plan it labelled entities
+    with their codes and linked each root account to its own entity.
+    """
+    accounts, txs, source = sf.load_feed(FIXTURE_PATH)
+    atoms, _ = cb.build_atoms(sf.build_plan(accounts, txs, source))
+
+    labels = {a["id"]: a["label"] for a in atoms if a["id"].startswith("entity:")}
+    assert labels == {
+        "entity:RST": "Regima Skin Treatments CC",
+        "entity:PF": "Peter A Faucitt",
+    }
+
+    entity_links = {
+        (a["source"], a["target"])
+        for a in atoms
+        if a["atom_type"] == "GNC_ATOM_INHERITANCE_LINK"
+        and a["target"].startswith("entity:")
+    }
+    assert ("account:RST", "entity:RST") not in entity_links
+    assert ("account:PF", "entity:PF") not in entity_links
+    assert ("account:55270035642", "entity:RST") in entity_links
