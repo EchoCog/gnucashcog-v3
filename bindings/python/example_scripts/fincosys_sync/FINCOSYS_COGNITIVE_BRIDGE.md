@@ -32,10 +32,13 @@ Concretely, for a given plan it emits:
 
 * One `GNC_ATOM_CONCEPT_NODE` per distinct `entity_code` referenced by any
   account or transaction in the plan (`id: "entity:<code>"`). The label is
-  the entity's name if the plan contains an `ENTITY-<code>` root account
-  for it (the `--data-dir` fallback loader always creates one, using
-  fincosys's `MASTER_ENTITIES.json` `legal_name`); otherwise the label
-  falls back to the bare `entity_code`.
+  the entity's name if the plan contains a root account for it, and
+  otherwise falls back to the bare `entity_code`. The two loaders code
+  that root differently: the `--data-dir` fallback creates
+  `ENTITY-<code>` (named from fincosys's `MASTER_ENTITIES.json`
+  `legal_name`), while accospace's `GnuCashSyncExporter` (`--feed`) uses
+  the bare `<code>`, named from the entity node's label. Both are
+  recognized.
 * One `GNC_ATOM_CONCEPT_NODE` per account in the plan (`id:
   "account:<code>"`).
 * One `GNC_ATOM_INHERITANCE_LINK` per account that has an `entity_code`,

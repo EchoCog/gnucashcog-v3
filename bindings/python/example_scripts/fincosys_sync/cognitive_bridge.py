@@ -80,6 +80,23 @@ def _tx_atom_id(txid: str) -> str:
     return f"tx:{txid}"
 
 
+def _is_entity_root(account: Dict[str, Any]) -> bool:
+    """Whether ``account`` is its entity's root account, under either code scheme.
+
+    The two loaders in sync_fincosys.py name an entity's root differently:
+    ``load_fallback`` (--data-dir) codes it ``ENTITY-<entity_code>``, while
+    accospace's GnuCashSyncExporter (--feed) codes it with the bare
+    ``entity_code``.  Recognizing only the first silently degraded every
+    feed-sourced plan: entity ConceptNodes were labelled with their code
+    instead of their legal name, and each root account was linked to its
+    own entity as if it were a member of it.
+    """
+    entity_code = account.get("entity_code")
+    if not entity_code:
+        return False
+    return account.get("code") in (entity_code, f"ENTITY-{entity_code}")
+
+
 def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
@@ -98,16 +115,15 @@ def build_atoms(plan: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[s
         atoms.append(atom)
 
     # -- entity ConceptNodes -------------------------------------------------
-    # An entity's "legal name" is only directly available in this plan when
-    # the fallback loader materialized an ENTITY-<code> root account for it
-    # (see sync_fincosys.load_fallback: ensure_entity_root()); feed-sourced
-    # plans may reference entity_code without ever declaring such a root
-    # account, so we also pick up entity codes referenced only via
-    # account.entity_code / transaction.entity_code and fall back to the
-    # bare code as the label.
+    # An entity's "legal name" is only directly available in this plan as
+    # the name of its root account (see _is_entity_root for the two code
+    # schemes that root can have). A plan may also reference an entity_code
+    # without declaring a root account for it, so we also pick up entity
+    # codes referenced only via account.entity_code /
+    # transaction.entity_code and fall back to the bare code as the label.
     entity_label_by_code: Dict[str, str] = {}
     for a in accounts:
-        if a.get("code") == f"ENTITY-{a.get('entity_code')}":
+        if _is_entity_root(a):
             entity_label_by_code[a["entity_code"]] = a.get("name") or a["entity_code"]
 
     all_entity_codes = set(entity_label_by_code)
@@ -150,7 +166,7 @@ def build_atoms(plan: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[s
         code = a["code"]
         entity_code = a.get("entity_code")
         # Skip the entity root account linking to itself.
-        if entity_code and code != f"ENTITY-{entity_code}":
+        if entity_code and not _is_entity_root(a):
             add_atom(
                 {
                     "atom_type": "GNC_ATOM_INHERITANCE_LINK",
