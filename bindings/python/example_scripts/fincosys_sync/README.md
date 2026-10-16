@@ -146,8 +146,10 @@ ledger). GnuCash requires every `Transaction`'s `Split`s to sum to zero.
 Rather than inventing a fictitious counterparty account, the `--data-dir`
 loader (`load_fallback()` in `sync_fincosys.py`) synthesizes the
 offsetting split into a placeholder account named `Imbalance-<category>`,
-scoped per entity (account code `IMBALANCE-<entity_code>-<category>`,
-e.g. `IMBALANCE-SLG-PAYMENT`). This mirrors the convention GnuCash's own
+scoped per entity (account code `<entity_code>-Imbalance-<category>`,
+e.g. `SLG-Imbalance-PAYMENT`). A row with no `category` is bucketed by its
+`xero_account_code`, and only a row with neither goes to `UNCATEGORIZED`.
+This mirrors the convention GnuCash's own
 OFX/QIF importers use internally: `libgnucash/engine/Scrub.cpp`
 (`get_balance_split()`) creates an account literally named
 `Imbalance-<commodity-mnemonic>` of type `ACCT_TYPE_BANK` to hold the
@@ -157,8 +159,8 @@ currency -- fincosys already classifies every row into a `category`
 (`INCOME`, `PAYMENT`, `FEE`, `CARD_PURCHASE`, ...), and the case is
 entity-scoped forensic analysis rather than personal bookkeeping, so a
 single per-currency suspense account would bury the very distinctions a
-forensic accountant needs (e.g. keeping `IMBALANCE-SLG-PAYMENT` distinct
-from `IMBALANCE-RST-FEE`).
+forensic accountant needs (e.g. keeping `SLG-Imbalance-PAYMENT` distinct
+from `RST-Imbalance-FEE`).
 
 These accounts are placeholders for further work, not a claim that the
 offsetting side is unknowable -- reconciling them against the actual
@@ -202,6 +204,42 @@ slot would. Wiring a proper KVP-backed idempotency key through the Python
 bindings (via a new SWIG-exposed `xaccTransSetOnlineID`/`GetOnlineID`, or
 equivalent) is an open follow-up, not something this tool works around
 silently.
+
+### Account codes are the same on both input paths
+
+Accounts are matched by **code** (`GetCode()`), so `--data-dir` and `--feed`
+must code the same account the same way, or a book built with one and later
+synced with the other grows a second, parallel account tree. Every existing
+transaction is skipped as already synced, every new one lands in the new
+tree, and each entity's history ends up split between the two.
+
+Both loaders therefore use the codes accospace's `GnuCashSyncExporter` emits:
+
+| account | code |
+|---|---|
+| entity root | `<entity_code>` |
+| bank account | `<account_number>` |
+| imbalance placeholder | `<entity_code>-Imbalance-<category, else Xero code, else UNCATEGORIZED>` |
+
+`tests/test_loader_equivalence.py` checks this against a feed accospace
+actually produced from the same data directory.
+
+**Books built before this change** used `ENTITY-<entity_code>`,
+`BANK-<account_number>` and `IMBALANCE-<entity_code>-<category>`. `--apply`
+adopts such accounts instead of duplicating them: when it cannot find an
+account under its current code, it looks for the old one and, if found,
+changes that account's code in place, keeping its name, type and
+transactions. After one run the book uses the current codes throughout.
+
+One placeholder can keep its old code. A row with a Xero code but no
+category used to go to `IMBALANCE-<entity>-UNCATEGORIZED`; it now goes to
+`<entity>-Imbalance-<xero code>`. The old `UNCATEGORIZED` placeholder may
+also hold rows that really are uncategorized, so it is not renamed to a
+Xero code: it keeps its old code and its existing splits, and the
+Xero-coded placeholder starts empty for later rows. Nothing is posted twice.
+Account *types* still differ between the loaders (entity root `ASSET` vs
+`EQUITY`, imbalance `BANK` vs `EXPENSE`); an account keeps whichever type
+it was created with.
 
 ## Tests
 

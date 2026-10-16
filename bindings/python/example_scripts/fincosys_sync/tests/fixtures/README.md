@@ -181,3 +181,63 @@ of them stops testing what this one tests:
 **Regenerate it with accospace, never by editing it.** Hand-editing turns it
 back into an assertion about ourselves, which is the failure mode it exists
 to prevent.
+
+## `loader_equivalence/`
+
+A tiny fincosys `data/` directory (`data/MASTER_ENTITIES.json`,
+`data/MASTER_ACCOUNTS.json`, `data/transaction_index.json`) together with
+`feed.json`, the sync feed **`fincosys/accospace` actually produced from that
+same directory**. `tests/test_loader_equivalence.py` loads the directory with
+`--data-dir`'s `load_fallback()` and the feed with `load_feed()`, and asserts
+the two loaders put every transaction's splits in the same accounts.
+
+That is the property `--apply` depends on. It matches accounts already in a
+book by code, so when the loaders coded accounts differently
+(`ENTITY-RST` / `BANK-<n>` / `IMBALANCE-RST-<c>` against `RST` / `<n>` /
+`RST-Imbalance-<c>`), a book built with one and later synced with the other
+grew a second, parallel tree, and each entity's history ended up split across
+the two by date of sync.
+
+The rows are chosen to cover the cases where the loaders used to disagree
+beyond the code prefixes: a row with only a `xero_account_code` and no
+`category` (the exporter buckets its imbalance by Xero code, and the fallback
+used to say `UNCATEGORIZED`), and a row whose `entity_code` differs from the
+owner of the bank account it is on.
+
+`feed.json` also carries two `CP_*` top-level accounts. Those are accospace
+counterparty stubs from its transaction-index loader that its GnuCash exporter
+does not yet filter out (it filters only the per-statement loader's stubs).
+They are left in on purpose: this fixture records what the exporter emits,
+and the test only requires that every account the fallback creates exists in
+the feed with the same parent, so it keeps passing once accospace stops
+emitting them.
+
+Regenerate `feed.json` from an accospace checkout, never by editing it:
+
+```python
+import json, sys
+from atomspace_builder.builder import AtomSpaceBuilder
+from atomspace_builder.config import AtomSpaceConfig
+from atomspace_builder.exporters.gnucash_exporter import generate_feed
+
+config = AtomSpaceConfig()
+config.data_dir = "loader_equivalence/data"
+config.include_transaction_index = True
+config.include_transactions = False
+builder = AtomSpaceBuilder(config)
+builder.build()
+feed = generate_feed(builder.hypergraph, generated_at="2026-10-16T00:00:00+00:00")
+json.dump(feed, open("loader_equivalence/feed.json", "w"), indent=2)
+```
+
+Captured from accospace `main` at `0193444`.
+
+`legacy_data_dir_plan.json` is the plan this repository's own `--data-dir`
+loader produced from the same directory *before* its codes were aligned with
+the feed (`sync_fincosys.py` at `f428bb8`, `ENTITY-` / `BANK-` /
+`IMBALANCE-` codes). `tests/test_apply_across_loaders.py` applies it to a
+book first, so the rename-on-apply path is tested against the book a user of
+the old version actually has, not a reconstruction of it. It was produced by
+importing that revision's `sync_fincosys.py` and calling
+`build_plan(*load_fallback("loader_equivalence/data"))`; there is nothing to
+regenerate unless that history changes.

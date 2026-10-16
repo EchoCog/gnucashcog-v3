@@ -33,12 +33,12 @@ Concretely, for a given plan it emits:
 * One `GNC_ATOM_CONCEPT_NODE` per distinct `entity_code` referenced by any
   account or transaction in the plan (`id: "entity:<code>"`). The label is
   the entity's name if the plan contains a root account for it, and
-  otherwise falls back to the bare `entity_code`. The two loaders code
-  that root differently: the `--data-dir` fallback creates
-  `ENTITY-<code>` (named from fincosys's `MASTER_ENTITIES.json`
-  `legal_name`), while accospace's `GnuCashSyncExporter` (`--feed`) uses
-  the bare `<code>`, named from the entity node's label. Both are
-  recognized.
+  otherwise falls back to the bare `entity_code`. Both loaders code that
+  root with the bare `<code>`, as accospace's `GnuCashSyncExporter` does
+  (`--data-dir` names it from fincosys's `MASTER_ENTITIES.json`
+  `legal_name`, `--feed` from the entity node's label). Plans written by
+  the `--data-dir` loader before its codes were aligned with the feed
+  used `ENTITY-<code>`, and those are recognized too.
 * One `GNC_ATOM_CONCEPT_NODE` per account in the plan (`id:
   "account:<code>"`).
 * One `GNC_ATOM_INHERITANCE_LINK` per account that has an `entity_code`,
@@ -83,7 +83,7 @@ writing:
   untouched.
 * **No real `GncAtomHandle` values are created.** The `id` fields in
   `cognitive_atoms.json` are plain strings (`"entity:RST"`,
-  `"account:BANK-111"`, ...), not the `guint64` handles
+  `"account:55270035642"`, ...), not the `guint64` handles
   `gnc_atomspace_create_concept_node()` et al. would return from the
   actual (simulated) AtomSpace.
 * **Nothing calls into the compiled engine.** There is no code path from

@@ -160,10 +160,11 @@ def test_entity_names_reach_the_plan_and_agree_with_the_entities_block():
 def test_cognitive_bridge_names_entities_from_real_exporter_output():
     """The bridge recognizes the exporter's entity roots, not just the fallback's.
 
-    The --data-dir loader codes an entity root ``ENTITY-<code>``; the
-    exporter codes it with the bare entity code.  The bridge used to look
-    only for the first, so on every feed-sourced plan it labelled entities
-    with their codes and linked each root account to its own entity.
+    The exporter codes an entity root with the bare entity code; the
+    --data-dir loader used to code it ``ENTITY-<code>``.  The bridge used to
+    look only for the latter, so on every feed-sourced plan it labelled
+    entities with their codes and linked each root account to its own
+    entity.
     """
     accounts, txs, source = sf.load_feed(FIXTURE_PATH)
     atoms, _ = cb.build_atoms(sf.build_plan(accounts, txs, source))
