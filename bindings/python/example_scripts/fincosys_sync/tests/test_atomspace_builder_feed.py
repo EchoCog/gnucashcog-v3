@@ -129,3 +129,29 @@ def test_cognitive_bridge_maps_real_exporter_output_to_atoms():
     # (balance/booking assertion) so nothing silently drops on the cognitive
     # side even though it validated cleanly on the accounting side.
     assert len(evaluations) >= len(plan["transactions"])
+
+
+def test_entity_names_reach_the_plan_and_agree_with_the_entities_block():
+    """Entity identity survives the --feed path, by the channel this loader uses.
+
+    accospace's exporter emits an ``entities`` block ({code, legal_name,
+    entity_type}).  This loader does not read it: an entity's name travels
+    in its root account's ``name``, which the exporter sets to the same
+    legal name, so the plan already names entities the way the
+    --data-dir path does.  This pins both halves of that against real
+    output -- the block is present, and every entity it describes comes
+    out of the plan under its legal name -- so a producer that ever names
+    a root account by its code, or drops the block, fails here.
+    """
+    raw = _load_raw_fixture()
+    described = {e["code"]: e["legal_name"] for e in raw["entities"]}
+    assert described == {
+        "RST": "Regima Skin Treatments CC",
+        "PF": "Peter A Faucitt",
+    }
+
+    accounts, txs, source = sf.load_feed(FIXTURE_PATH)
+    plan = sf.build_plan(accounts, txs, source)
+    names = {a["code"]: a["name"] for a in plan["accounts"]}
+    for code, legal_name in described.items():
+        assert names[code] == legal_name
