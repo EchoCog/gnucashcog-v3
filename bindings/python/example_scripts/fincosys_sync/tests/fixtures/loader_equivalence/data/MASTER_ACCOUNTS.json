@@ -1,0 +1,18 @@
+{
+  "accounts": [
+    {
+      "account_number": "55270035642",
+      "account_name": "Regima Skin Treatments",
+      "account_type": "Platinum Business Account",
+      "entity_code": "RST",
+      "currency": "ZAR"
+    },
+    {
+      "account_number": "55270018789",
+      "account_name": "Pete Platinum Acct",
+      "account_type": "Platinum Cheque Account",
+      "entity_code": "PF",
+      "currency": "ZAR"
+    }
+  ]
+}

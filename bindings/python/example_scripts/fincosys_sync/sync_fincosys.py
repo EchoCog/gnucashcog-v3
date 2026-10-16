@@ -222,17 +222,48 @@ def load_feed(feed_path: str) -> Tuple[List[AccountRec], List[TransactionRec], s
 # (entity_code, category) instead of just currency, since fincosys already
 # classifies every line into a category and the case is entity-scoped
 # forensic analysis rather than personal bookkeeping.
+#
+# Account codes follow accospace's GnuCashSyncExporter (the --feed path),
+# so the two loaders name the same account the same way: --apply matches
+# accounts in an existing book by code, and with different schemes a book
+# built by one loader and later synced by the other grew a second, parallel
+# account tree. Books built before this change carry the old codes
+# (ENTITY-<e>, BANK-<n>, IMBALANCE-<e>-<c>); --apply renames those in place
+# -- see _legacy_code().
+
+UNASSIGNED = "UNASSIGNED"
+
 
 def _entity_root_code(entity_code: Optional[str]) -> str:
-    return f"ENTITY-{entity_code or 'UNKNOWN'}"
+    return entity_code or UNASSIGNED
 
 
 def _bank_account_code(account_number: Optional[str]) -> str:
-    return f"BANK-{account_number or 'UNKNOWN'}"
+    return account_number or "UNKNOWN"
 
 
 def _imbalance_account_code(entity_code: Optional[str], category: Optional[str]) -> str:
-    return f"IMBALANCE-{entity_code or 'UNKNOWN'}-{category or UNCATEGORIZED}"
+    return f"{entity_code or UNASSIGNED}-Imbalance-{category or UNCATEGORIZED}"
+
+
+def _imbalance_bucket(row: Dict[str, Any]) -> str:
+    """Which Imbalance-* placeholder a row's offsetting split goes to.
+
+    Same precedence as the exporter: the category, else the Xero account
+    code, else UNCATEGORIZED. Without the Xero step a row with only a Xero
+    code went to a different placeholder depending on the loader.
+    """
+    return row.get("category") or row.get("xero_account_code") or UNCATEGORIZED
+
+
+def _legacy_code(code: str, spec: Dict[str, Any]) -> str:
+    """The code this account had under the pre-alignment --data-dir scheme."""
+    if "-Imbalance-" in code:
+        entity, bucket = code.split("-Imbalance-", 1)
+        return f"IMBALANCE-{'UNKNOWN' if entity == UNASSIGNED else entity}-{bucket}"
+    if not spec.get("parent_code"):
+        return f"ENTITY-{'UNKNOWN' if code == UNASSIGNED else code}"
+    return f"BANK-{code}"
 
 
 def load_fallback(data_dir: str) -> Tuple[List[AccountRec], List[TransactionRec], str]:
@@ -327,8 +358,9 @@ def load_fallback(data_dir: str) -> Tuple[List[AccountRec], List[TransactionRec]
         entity_code = row.get("entity_code")
         account_number = row.get("account_number")
         category = row.get("category") or UNCATEGORIZED
+        bucket = _imbalance_bucket(row)
         bank_code = ensure_bank_account(account_number, entity_code)
-        imbalance_code = ensure_imbalance_account(entity_code, category)
+        imbalance_code = ensure_imbalance_account(entity_code, bucket)
 
         try:
             amount = float(row.get("amount", 0.0))
@@ -340,7 +372,7 @@ def load_fallback(data_dir: str) -> Tuple[List[AccountRec], List[TransactionRec]
 
         splits = [
             SplitRec(account_code=bank_code, amount=amount, memo=memo),
-            SplitRec(account_code=imbalance_code, amount=-amount, memo=f"auto-imbalance ({category})"),
+            SplitRec(account_code=imbalance_code, amount=-amount, memo=f"auto-imbalance ({bucket})"),
         ]
         txs.append(
             TransactionRec(
@@ -598,6 +630,13 @@ def _apply_plan(plan: Dict[str, Any], book_path: str) -> int:
                 return gnc_account_by_code[code]
             spec = accounts_by_code[code]
             acct = _find_child_by_code(root, code)
+            if acct is None:
+                # A book built before the codes were aligned with the feed:
+                # adopt the old account under its new code rather than
+                # growing a second tree beside it.
+                acct = _find_child_by_code(root, _legacy_code(code, spec))
+                if acct is not None:
+                    acct.SetCode(code)
             if acct is None:
                 acct = Account(book)
                 acct.SetCode(code)

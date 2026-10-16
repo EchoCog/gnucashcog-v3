@@ -1,0 +1,44 @@
+{
+  "transactions": [
+    {
+      "txid": "T1",
+      "date": "2020-01-02",
+      "entity_code": "RST",
+      "account_number": "55270035642",
+      "amount": -500.0,
+      "direction": "outbound",
+      "category": "PAYMENT",
+      "counterparty": "J Faucitt Salary",
+      "balance_valid": true
+    },
+    {
+      "txid": "T2",
+      "date": "2020-01-03",
+      "entity_code": "RST",
+      "account_number": "55270035642",
+      "amount": -50.0,
+      "direction": "outbound",
+      "xero_account_code": "404",
+      "counterparty": "FNB"
+    },
+    {
+      "txid": "T3",
+      "date": "2020-01-04",
+      "entity_code": "PF",
+      "account_number": "55270018789",
+      "amount": 500.0,
+      "direction": "inbound"
+    },
+    {
+      "txid": "T4",
+      "date": "2020-01-05",
+      "entity_code": "PF",
+      "account_number": "55270035642",
+      "amount": -10.0,
+      "direction": "outbound",
+      "category": "TRANSFER",
+      "is_intercompany": true,
+      "counterparty_entity_code": "PF"
+    }
+  ]
+}

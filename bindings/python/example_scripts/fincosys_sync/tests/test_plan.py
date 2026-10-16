@@ -248,13 +248,14 @@ class TestFallbackLoader(unittest.TestCase):
         accounts, txs, source = sf.load_fallback(self.tmpdir)
         self.assertEqual(source, f"data-dir:{self.tmpdir}")
         codes = {a.code for a in accounts}
-        self.assertIn("ENTITY-RST", codes)
-        self.assertIn("BANK-111", codes)
-        self.assertIn("IMBALANCE-RST-INCOME", codes)
+        # Codes follow accospace's GnuCashSyncExporter (the --feed path).
+        self.assertIn("RST", codes)
+        self.assertIn("111", codes)
+        self.assertIn("RST-Imbalance-INCOME", codes)
         # account_number "999-unmapped" isn't in MASTER_ACCOUNTS.json, loader
         # should still synthesize a BANK account for it rather than fail.
-        self.assertIn("BANK-999-unmapped", codes)
-        self.assertIn("ENTITY-SLG", codes)
+        self.assertIn("999-unmapped", codes)
+        self.assertIn("SLG", codes)
 
         self.assertEqual(len(txs), 3)
         plan = sf.build_plan(accounts, txs, source)
@@ -290,12 +291,12 @@ class TestFallbackLoader(unittest.TestCase):
             json.dump(tx_index, f)
 
         accounts, txs, source = sf.load_fallback(self.tmpdir)
-        bank_account = next(a for a in accounts if a.code == "BANK-111")
+        bank_account = next(a for a in accounts if a.code == "111")
         self.assertEqual(bank_account.entity_code, "RST")
-        self.assertEqual(bank_account.parent_code, "ENTITY-RST")
-        # only one BANK-111 account should exist -- it must not have been
+        self.assertEqual(bank_account.parent_code, "RST")
+        # only one "111" account should exist -- it must not have been
         # duplicated or re-parented for the second (SLG-tagged) row
-        self.assertEqual(sum(1 for a in accounts if a.code == "BANK-111"), 1)
+        self.assertEqual(sum(1 for a in accounts if a.code == "111"), 1)
 
 
 if __name__ == "__main__":

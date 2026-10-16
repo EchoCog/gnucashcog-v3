@@ -1,0 +1,196 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-16T00:00:00+00:00",
+  "source": "data-dir:loader_equivalence/data",
+  "summary": {
+    "total_accounts": 8,
+    "total_transactions": 4,
+    "total_splits": 8,
+    "duplicate_txid_count": 0,
+    "unknown_account_ref_count": 0,
+    "unbalanced_transaction_count": 0,
+    "issue_count": 0,
+    "clean": true
+  },
+  "accounts": [
+    {
+      "code": "ENTITY-RST",
+      "name": "Regima Skin Treatments CC",
+      "account_type": "ASSET",
+      "parent_code": null,
+      "entity_code": "RST",
+      "currency": "ZAR",
+      "description": "fincosys entity root (grouping placeholder; not itself a real balance-sheet account) for entity_code=RST"
+    },
+    {
+      "code": "BANK-55270035642",
+      "name": "Regima Skin Treatments (55270035642)",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-RST",
+      "entity_code": "RST",
+      "currency": "ZAR",
+      "description": "Platinum Business Account"
+    },
+    {
+      "code": "IMBALANCE-RST-PAYMENT",
+      "name": "Imbalance-PAYMENT",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-RST",
+      "entity_code": "RST",
+      "currency": "ZAR",
+      "description": "Placeholder for the un-synthesized offsetting side of a single-sided bank-statement line from fincosys/data/transaction_index.json (category=PAYMENT). See fincosys_sync/README.md 'Imbalance account rationale'."
+    },
+    {
+      "code": "IMBALANCE-RST-UNCATEGORIZED",
+      "name": "Imbalance-UNCATEGORIZED",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-RST",
+      "entity_code": "RST",
+      "currency": "ZAR",
+      "description": "Placeholder for the un-synthesized offsetting side of a single-sided bank-statement line from fincosys/data/transaction_index.json (category=UNCATEGORIZED). See fincosys_sync/README.md 'Imbalance account rationale'."
+    },
+    {
+      "code": "ENTITY-PF",
+      "name": "Peter A Faucitt",
+      "account_type": "ASSET",
+      "parent_code": null,
+      "entity_code": "PF",
+      "currency": "ZAR",
+      "description": "fincosys entity root (grouping placeholder; not itself a real balance-sheet account) for entity_code=PF"
+    },
+    {
+      "code": "BANK-55270018789",
+      "name": "Pete Platinum Acct (55270018789)",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-PF",
+      "entity_code": "PF",
+      "currency": "ZAR",
+      "description": "Platinum Cheque Account"
+    },
+    {
+      "code": "IMBALANCE-PF-UNCATEGORIZED",
+      "name": "Imbalance-UNCATEGORIZED",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-PF",
+      "entity_code": "PF",
+      "currency": "ZAR",
+      "description": "Placeholder for the un-synthesized offsetting side of a single-sided bank-statement line from fincosys/data/transaction_index.json (category=UNCATEGORIZED). See fincosys_sync/README.md 'Imbalance account rationale'."
+    },
+    {
+      "code": "IMBALANCE-PF-TRANSFER",
+      "name": "Imbalance-TRANSFER",
+      "account_type": "BANK",
+      "parent_code": "ENTITY-PF",
+      "entity_code": "PF",
+      "currency": "ZAR",
+      "description": "Placeholder for the un-synthesized offsetting side of a single-sided bank-statement line from fincosys/data/transaction_index.json (category=TRANSFER). See fincosys_sync/README.md 'Imbalance account rationale'."
+    }
+  ],
+  "transactions": [
+    {
+      "txid": "T1",
+      "date": "2020-01-02",
+      "description": "",
+      "currency": "ZAR",
+      "entity_code": "RST",
+      "splits": [
+        {
+          "account_code": "BANK-55270035642",
+          "amount": -500.0,
+          "memo": "J Faucitt Salary"
+        },
+        {
+          "account_code": "IMBALANCE-RST-PAYMENT",
+          "amount": 500.0,
+          "memo": "auto-imbalance (PAYMENT)"
+        }
+      ],
+      "metadata": {
+        "is_intercompany": null,
+        "category": "PAYMENT",
+        "xero_account_code": null,
+        "balance_valid": true,
+        "balance_hash": null
+      }
+    },
+    {
+      "txid": "T2",
+      "date": "2020-01-03",
+      "description": "",
+      "currency": "ZAR",
+      "entity_code": "RST",
+      "splits": [
+        {
+          "account_code": "BANK-55270035642",
+          "amount": -50.0,
+          "memo": "FNB"
+        },
+        {
+          "account_code": "IMBALANCE-RST-UNCATEGORIZED",
+          "amount": 50.0,
+          "memo": "auto-imbalance (UNCATEGORIZED)"
+        }
+      ],
+      "metadata": {
+        "is_intercompany": null,
+        "category": "UNCATEGORIZED",
+        "xero_account_code": "404",
+        "balance_valid": null,
+        "balance_hash": null
+      }
+    },
+    {
+      "txid": "T3",
+      "date": "2020-01-04",
+      "description": "",
+      "currency": "ZAR",
+      "entity_code": "PF",
+      "splits": [
+        {
+          "account_code": "BANK-55270018789",
+          "amount": 500.0,
+          "memo": ""
+        },
+        {
+          "account_code": "IMBALANCE-PF-UNCATEGORIZED",
+          "amount": -500.0,
+          "memo": "auto-imbalance (UNCATEGORIZED)"
+        }
+      ],
+      "metadata": {
+        "is_intercompany": null,
+        "category": "UNCATEGORIZED",
+        "xero_account_code": null,
+        "balance_valid": null,
+        "balance_hash": null
+      }
+    },
+    {
+      "txid": "T4",
+      "date": "2020-01-05",
+      "description": "",
+      "currency": "ZAR",
+      "entity_code": "PF",
+      "splits": [
+        {
+          "account_code": "BANK-55270035642",
+          "amount": -10.0,
+          "memo": ""
+        },
+        {
+          "account_code": "IMBALANCE-PF-TRANSFER",
+          "amount": 10.0,
+          "memo": "auto-imbalance (TRANSFER)"
+        }
+      ],
+      "metadata": {
+        "is_intercompany": true,
+        "category": "TRANSFER",
+        "xero_account_code": null,
+        "balance_valid": null,
+        "balance_hash": null
+      }
+    }
+  ],
+  "issues": []
+}

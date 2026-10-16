@@ -81,15 +81,15 @@ def _tx_atom_id(txid: str) -> str:
 
 
 def _is_entity_root(account: Dict[str, Any]) -> bool:
-    """Whether ``account`` is its entity's root account, under either code scheme.
+    """Whether ``account`` is its entity's root account.
 
-    The two loaders in sync_fincosys.py name an entity's root differently:
-    ``load_fallback`` (--data-dir) codes it ``ENTITY-<entity_code>``, while
-    accospace's GnuCashSyncExporter (--feed) codes it with the bare
-    ``entity_code``.  Recognizing only the first silently degraded every
-    feed-sourced plan: entity ConceptNodes were labelled with their code
-    instead of their legal name, and each root account was linked to its
-    own entity as if it were a member of it.
+    Both loaders in sync_fincosys.py now code an entity's root with the
+    bare ``entity_code``, as accospace's GnuCashSyncExporter does.  Plans
+    written before that, by the --data-dir loader, coded it
+    ``ENTITY-<entity_code>``, so both are recognized.  Recognizing only the
+    old form silently degraded every feed-sourced plan: entity ConceptNodes
+    were labelled with their code instead of their legal name, and each
+    root account was linked to its own entity as if it were a member of it.
     """
     entity_code = account.get("entity_code")
     if not entity_code:
