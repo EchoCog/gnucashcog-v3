@@ -480,3 +480,25 @@ Two things, both driven off the `metadata` the importer carries through:
   `CONFIDENCE_COMMERCE_PARTIAL`. Both tiers match accospace's
   `extracted` / `partial_capture` truth values, so a hypergraph built from
   these atoms and one built there from the same records agree.
+
+## QuickBooks general ledgers (Meridian captures)
+
+`meridian_import.py` is a third input path. Where `commerce_import.py`
+books documents, it books the ledger: each QuickBooks company's whole
+general ledger, as fincosys places it in the entity repositories
+(`accounting/qbo/meridian/<captured>/`), becomes one GnuCash account per
+QuickBooks account and one transaction per QuickBooks transaction.
+
+```bash
+python3 meridian_import.py --repos-root ~/fincosys-repos \
+    --master-entities ../fincosys-core/data/MASTER_ENTITIES.json \
+    --out gl_feed.json
+python3 sync_fincosys.py --feed gl_feed.json --plan-only
+```
+
+It verifies each capture against its manifest's SHA-256, books only
+balanced transactions, ties every bank account to the capture's separate
+bank-ledger report, and books one capture per company. Do not apply it and
+the commerce feed for the same entity to one book: the ledger already holds
+those invoices. Details and measurements: `docs/FINCOSYS_ECOSYSTEM_SYNC.md`,
+"QuickBooks general ledgers reach GnuCash".
