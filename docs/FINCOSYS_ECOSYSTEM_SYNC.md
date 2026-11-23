@@ -552,3 +552,108 @@ either. With it, the corpus-wide booking run exits 0 and plans clean: 52
 accounts, 16,393 transactions, 999 superseded captures collapsed, and the
 one genuine figure conflict (`QBO_RZL_INVOICE_52168`) named and left
 unbooked.
+
+## A record states more than the amount charged, and all of it is now read (2026-11-23)
+
+`commerce_import.py` read `amounts` and nothing else. Every bookable record
+debited `total` to `COMM-<entity>-AR` and credited revenue, shipping and tax,
+and the three other things the schema states about the same record --
+`financial_status`, `refunded` and `net_payment`, plus `cancelled_at` -- were
+carried into the transaction's metadata or dropped, never read. Each of them
+changes what is actually owed.
+
+Measured on `fincosys/entity-rzl`'s own 9,449-order Shopify history (the
+2026-09-22 whole-history capture):
+
+| | orders | value |
+|---|---:|---:|
+| `VOIDED`, nothing received, nothing refunded | 25 | **GBP 4,710.89** |
+| `REFUNDED` | 5 | GBP 257.34 refunded of GBP 257.34 |
+| `PARTIALLY_REFUNDED` | 12 | GBP 1,073.29 refunded of GBP 3,722.05 |
+
+Booked the old way that is GBP 4,710.89 of revenue and receivables for sales
+that were never charged, plus GBP 1,330.63 of refunds the document states and
+the ledger never saw. Three changes:
+
+- **A voided record is not booked, and is named.** The status alone does not
+  decide: a voided authorization means nothing was captured, so the figures
+  have to agree with it (`net_payment` 0 where stated, `refunded` 0). A record
+  calling itself voided while stating money received is a contradiction, and
+  is booked and reported rather than dropped -- dropping a sale that *was*
+  charged is the worse of the two errors available. `net_payment` is absent
+  from every QuickBooks record (they state `balance`), so an absent field
+  corroborates nothing and only `refunded` is tested.
+- **A stated `refunded` books a reversal of its own**, `COMMERCE:<record_id>:REFUND`,
+  crediting receivables and debiting a new `COMM-<entity>-REFUNDS`
+  (`EXPENSE`, built only for a currency that actually booked one, so a
+  document with no refund leaves no empty account behind). Not a netting of
+  the sale: the sale as issued and the reversal are both in the ledger and
+  either can be traced to the record. The reversal is **not decomposed**
+  across revenue, shipping and tax -- the record states one refund figure and
+  no split of it, and apportioning it pro rata would invent three figures
+  from one.
+- **A settled record short of its own total is reported.** `net_payment +
+  refunded` against `total`, on a record whose status says it is settled.
+
+### `refunded` is not enough, and that is the subtle part
+
+A Shopify **return** -- goods back, the order credited, no money paid out --
+leaves `refunded` at `0.00`. It shows up only in `net_payment`. Order #10675
+of 2026-11-16 states `total: "139.5"`, `refunded: "0.0"`,
+`net_payment: "63.9"` and reads `PAID`; its one `Refund` document refunds GBP
+0.00 against a 63.00 line, and the order's own transactions show a single
+manual `SALE` of 63.90 with `totalOutstanding` 0.00. On `refunded` alone it is
+a fully collected GBP 139.50 sale.
+
+141 of that history's 9,449 orders fail the test, GBP 8,586.67 in all -- 3 with
+nothing received, 138 part-received. The report **names them and does not
+adjudicate them**, because a settled record short of its own total is equally
+what a document settled outside the provider looks like. Before this change
+none of the 141 was visible anywhere.
+
+### A void can retract a booking within a run, and not after
+
+`resolve_duplicates` compares two captures of one record; a voided record
+produces no transaction, so there is nothing to compare against and the
+earlier capture's booking survived. `convert_paths` now drops a booked
+transaction that a **better** capture (`_supersession_rank`: complete beats
+partial, then the later `generated_at`) says was voided, and reports it. A
+weaker capture cannot void a record a better one books, or a stale partial
+window could unbook the live ledger.
+
+entity-rzl holds exactly that pair: three orders its 2026-11-16 capture states
+`PENDING` read `VOIDED` on 2026-11-23, **GBP 2,231.88** between them
+(#10571 1,710.00, #10642 338.10, #10660 183.78).
+
+The limit is stated rather than left to be discovered: this works on the
+transactions a run produces. A transaction already applied to a book stays
+until someone deletes it -- idempotency protects a re-import, it cannot
+retract a booking already made.
+
+### Verified
+
+- **Both fork's suites pass**, 166 tests here (151 before), with 15 new cases each
+  covering the behaviour above against the figures quoted here.
+- **The corpus-wide run is unchanged in shape and still clean**: `--repos-root`
+  over the 43 checked-out repositories with `--master-entities` (13 record
+  documents discovered, 5 report captures skipped), 20 accounts, 13,797
+  transactions, 1,266 captures collapsed, 0 rejected, the one known
+  figure conflict (`QBO_RZL_INVOICE_52168`) named and unbooked, and
+  `plan is clean: True`. In the *committed* corpus exactly one record is
+  reported settled-short (#10364, charged 480.73 against 364.33 received) and
+  there are no voided or refunded records at all -- the measured scale above
+  lives in the capture that is staged rather than placed, because
+  `fincosys/entity-rzl` refuses writes.
+- **The two documents captured the same day book clean**: RDH's
+  2026-11-23 QuickBooks invoices (2 records, 0 rejected) and RZL's
+  2026-11-23 Shopify window (14 records, 0 rejected, #10675 named settled
+  short).
+
+The schema side of the contract is stated in `fincosys/accospace`,
+`docs/COMMERCE_SYNC_SCHEMA.md` ("The settlement fields are part of the
+contract, not decoration"), together with a fourth producer,
+`scripts/shopify_settlement_refresh.py`, which says what the provider now
+says about orders a capture already holds. Of the 196 RZL orders held at
+2026-11-23, **43 no longer read as captured**; it writes that as a report
+capture (`report: "settlement_refresh"`), which `discover_documents` skips,
+so a settlement note can never be booked as a sale.

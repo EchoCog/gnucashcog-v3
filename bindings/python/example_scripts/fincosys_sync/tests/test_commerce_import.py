@@ -1604,3 +1604,306 @@ def test_the_same_total_written_differently_is_not_a_conflict(tmp_path):
 
     assert len(transactions) == 1
     assert duplicates["conflicts"] == []
+
+
+# -- the settlement a record states about its own sale ----------------------
+#
+# Until 2026-11-23 only `amounts` was read, so a voided order booked as a
+# sale, a stated refund reversed nothing, and a return credited against an
+# order with no money returned was invisible. Each test below is one of
+# those, and the figures come from entity-rzl's own history.
+
+
+def _plan_is_clean(accounts, transactions):
+    """Is the plan these accounts and transactions produce clean?
+
+    build_plan's input and output shapes differ between the two forks --
+    gnucashm plans the plain dicts and reports under ``validation``,
+    gnucashcog-v3 wants its AccountRec/TransactionRec dataclasses (which
+    commerce_import.to_sync_records exists to build) and reports under
+    ``summary``. Written this way so the two forks can keep one test file.
+    """
+    if hasattr(ci, "to_sync_records"):
+        account_recs, txn_recs = ci.to_sync_records(accounts, transactions)
+        plan = sf.build_plan(account_recs, txn_recs, "commerce-settlement")
+        return bool(plan["summary"]["clean"])
+    plan = sf.build_plan(accounts, transactions, source="commerce-settlement")
+    return bool(plan["validation"]["is_clean"])
+
+
+def _voided(**overrides):
+    amounts = {
+        "subtotal": "140.83", "discounts": "0.0", "shipping": "0.0",
+        "tax": "28.17", "total": "169.0", "refunded": "0.0",
+        "net_payment": "0.0",
+    }
+    amounts.update(overrides.pop("amounts", {}))
+    return _order(record_id="SHOPIFY_RZL_ORDER_2196",
+                  document_number="#2196",
+                  financial_status="VOIDED", amounts=amounts, **overrides)
+
+
+def test_a_voided_order_is_not_booked():
+    """#2196's shape: the authorization was voided, nothing was captured.
+
+    25 of entity-rzl's 9,449 orders read this way, GBP 4,710.89 between
+    them. Booked, they credit revenue and raise a receivable for a charge
+    that never happened.
+    """
+    _, transactions, report = ci.convert(_document(records=[_voided()]))
+
+    assert transactions == []
+    assert report["booked"] == 0
+    assert [v["document_number"] for v in report["voided"]] == ["#2196"]
+    assert report["voided"][0]["total"] == pytest.approx(169.0)
+    # Not a rejection: nothing about the record is malformed.
+    assert report["rejected"] == []
+
+
+def test_a_voided_order_that_states_money_received_is_still_booked():
+    """The status alone does not decide; the figures have to agree with it.
+
+    A record calling itself voided while stating money received is a
+    contradiction, and dropping a sale that was charged is the worse of the
+    two errors available.
+    """
+    record = _voided(amounts={"net_payment": "169.0"})
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    assert len(transactions) == 1
+    assert report["voided"] == []
+
+
+def test_a_voided_order_that_states_a_refund_is_still_booked():
+    record = _voided(amounts={"refunded": "169.0", "net_payment": "0.0"})
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    # The sale and its reversal, not a skip.
+    assert len(transactions) == 2
+    assert report["voided"] == []
+
+
+def test_a_quickbooks_record_with_no_net_payment_is_still_voidable():
+    """QuickBooks records state `balance`, never `net_payment`.
+
+    An absent field corroborates nothing either way, so only `refunded` is
+    tested -- otherwise the check would be unreachable on that whole source.
+    """
+    record = _voided(amounts={"net_payment": None})
+    record["amounts"].pop("net_payment")
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    assert transactions == []
+    assert len(report["voided"]) == 1
+
+
+def test_a_stated_refund_books_a_reversal_of_its_own():
+    """The sale as issued and the reversal are both in the ledger.
+
+    Netting the refund into the sale would leave a ledger in which neither
+    figure is the one the record states.
+    """
+    record = _order(amounts={
+        "subtotal": "329.5", "discounts": "44.0", "shipping": "17.05",
+        "tax": "65.9", "total": "412.45", "refunded": "100.0",
+        "net_payment": "312.45",
+    }, financial_status="PARTIALLY_REFUNDED")
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    assert len(transactions) == 2
+    sale, reversal = transactions
+    assert sale["txid"] == "COMMERCE:SHOPIFY_RZL_ORDER_10318"
+    assert reversal["txid"] == "COMMERCE:SHOPIFY_RZL_ORDER_10318:REFUND"
+    # The sale is booked at the amount charged, untouched by the refund.
+    assert _splits_by_suffix(sale)["AR"] == pytest.approx(412.45)
+    assert _splits_by_suffix(reversal) == {
+        "REFUNDS": pytest.approx(100.0),
+        "AR": pytest.approx(-100.0),
+    }
+    assert sum(s["amount"] for s in reversal["splits"]) == pytest.approx(0.0)
+    assert report["refunds"][0]["refunded"] == pytest.approx(100.0)
+    # One record booked, two transactions emitted.
+    assert report["booked"] == 1
+
+
+def test_the_reversal_does_not_decompose_what_the_record_does_not_state():
+    """A record states one refund figure and no split of it.
+
+    Apportioning it across revenue, shipping and tax pro rata would invent
+    three figures from one.
+    """
+    record = _order(amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "100.0", "net_payment": "312.45",
+    })
+    _, transactions, _ = ci.convert(_document(records=[record]))
+
+    reversal = transactions[1]
+    assert len(reversal["splits"]) == 2
+    assert reversal["metadata"]["decomposition"] == "not stated by the record"
+    assert reversal["metadata"]["reverses_record"] == (
+        "SHOPIFY_RZL_ORDER_10318")
+
+
+def test_the_refund_contra_account_is_built_only_when_a_refund_books():
+    """A document with no refund in it leaves no empty account in the plan."""
+    accounts, _, _ = ci.convert(_document())
+    assert "COMM-RZL-REFUNDS" not in {a["code"] for a in accounts}
+
+    record = _order(amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "1.0",
+    })
+    accounts, _, _ = ci.convert(_document(records=[record]))
+    refunds = [a for a in accounts if a["code"] == "COMM-RZL-REFUNDS"]
+    assert len(refunds) == 1
+    assert refunds[0]["account_type"] == "EXPENSE"
+    assert refunds[0]["currency"] == "GBP"
+
+
+def test_a_refund_larger_than_the_sale_is_refused_and_the_sale_still_books():
+    record = _order(amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "500.0",
+    })
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    assert len(transactions) == 1
+    assert report["refunds"] == []
+    assert len(report["refund_refusals"]) == 1
+    assert report["refund_refusals"][0]["refunded"] == pytest.approx(500.0)
+
+
+def test_a_settled_record_short_of_its_own_total_is_reported_and_booked():
+    """#10675 of 2026-11-16: charged 139.50, received 63.90, refunded 0.00.
+
+    Its one return document refunds GBP 0.00 against a 63.00 line, so
+    `refunded` stays 0.00 and only `net_payment` sees the return at all.
+    """
+    record = _order(record_id="SHOPIFY_RZL_ORDER_10675",
+                    document_number="#10675",
+                    financial_status="PAID",
+                    amounts={
+                        "subtotal": "111.0", "discounts": "0.0",
+                        "shipping": "6.3", "tax": "22.2", "total": "139.5",
+                        "refunded": "0.0", "net_payment": "63.9",
+                    })
+    _, transactions, report = ci.convert(_document(records=[record]))
+
+    # The sale happened and is booked at the amount charged.
+    assert len(transactions) == 1
+    assert _splits_by_suffix(transactions[0])["AR"] == pytest.approx(139.5)
+    gap = report["settlement_shortfalls"][0]
+    assert gap["document_number"] == "#10675"
+    assert gap["shortfall"] == pytest.approx(75.6)
+    assert transactions[0]["metadata"]["settlement_shortfall"] == (
+        pytest.approx(75.6))
+
+
+def test_an_unsettled_record_is_not_reported_as_short():
+    """Before a document is settled, short means merely unpaid."""
+    record = _order(financial_status="PENDING", amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "0.0", "net_payment": "0.0",
+    })
+    _, _, report = ci.convert(_document(records=[record]))
+    assert report["settlement_shortfalls"] == []
+
+
+def test_a_refunded_record_that_adds_up_is_not_reported_as_short():
+    record = _order(financial_status="PAID", amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "100.0", "net_payment": "312.45",
+    })
+    _, _, report = ci.convert(_document(records=[record]))
+    assert report["settlement_shortfalls"] == []
+
+
+def test_a_quickbooks_record_is_never_reported_as_short():
+    """It states `balance`, not `net_payment`, so the question cannot arise."""
+    invoice = {
+        "record_id": "QBO_RDH_INVOICE_12569",
+        "record_type": "sales_invoice",
+        "document_number": "RG2609PZ",
+        "issued_at": "2026-09-30",
+        "financial_status": "PAID",
+        "currency": "GBP",
+        "amounts": {
+            "subtotal": "14256.72", "discounts": "14256.72",
+            "shipping": "0.00", "tax": "2851.35", "total": "17108.07",
+            "balance": "17108.07",
+        },
+    }
+    _, transactions, report = ci.convert(
+        _document(records=[invoice], source="quickbooks"))
+    assert len(transactions) == 1
+    assert report["settlement_shortfalls"] == []
+    assert transactions[0]["metadata"]["balance"] == "17108.07"
+
+
+def test_a_better_capture_voiding_a_record_drops_the_earlier_booking(tmp_path):
+    """entity-rzl holds exactly this pair.
+
+    Three orders its 2026-11-16 capture states PENDING read VOIDED on
+    2026-11-23, GBP 2,231.88 between them. A voided record produces no
+    transaction, so without this the earlier booking survives.
+    """
+    earlier = tmp_path / "2026-11-16.json"
+    earlier.write_text(json.dumps(_document(
+        records=[_order(financial_status="PENDING")])))
+    later = tmp_path / "2026-11-23.json"
+    document = _document(records=[_order(financial_status="VOIDED", amounts={
+        "subtotal": "329.5", "shipping": "17.05", "tax": "65.9",
+        "total": "412.45", "refunded": "0.0", "net_payment": "0.0",
+    })])
+    document["generated_at"] = "2026-11-23T00:00:00Z"
+    later.write_text(json.dumps(document))
+
+    _, transactions, _, _, duplicates = ci.convert_paths(
+        [str(earlier), str(later)])
+
+    assert transactions == []
+    dropped = duplicates["voided_bookings"]
+    assert len(dropped) == 1
+    assert dropped[0]["txid"] == "COMMERCE:SHOPIFY_RZL_ORDER_10318"
+    assert dropped[0]["total"] == pytest.approx(412.45)
+
+
+def test_a_weaker_capture_cannot_void_a_record_a_better_one_books(tmp_path):
+    """Otherwise a stale partial window could unbook the live ledger."""
+    partial = tmp_path / "2026-11-23-partial.json"
+    document = _document(complete=False,
+                         records=[_order(financial_status="VOIDED", amounts={
+                             "subtotal": "329.5", "shipping": "17.05",
+                             "tax": "65.9", "total": "412.45",
+                             "refunded": "0.0", "net_payment": "0.0",
+                         })])
+    document["generated_at"] = "2026-11-23T00:00:00Z"
+    partial.write_text(json.dumps(document))
+    complete = tmp_path / "2026-11-16-complete.json"
+    complete.write_text(json.dumps(_document(
+        records=[_order(financial_status="PENDING")])))
+
+    _, transactions, _, _, duplicates = ci.convert_paths(
+        [str(partial), str(complete)])
+
+    assert len(transactions) == 1
+    assert duplicates["voided_bookings"] == []
+
+
+def test_the_real_shopify_records_name_their_one_settled_short_order():
+    """Measured, not asserted: #10364 is the only one in the 109-order
+    fixture, charged 480.73 against 364.33 received."""
+    with open(FIXTURE_PATH) as handle:
+        document = json.load(handle)
+
+    accounts, transactions, report = ci.convert(document)
+
+    assert [g["document_number"] for g in report["settlement_shortfalls"]] == (
+        ["#10364"])
+    assert report["settlement_shortfalls"][0]["shortfall"] == (
+        pytest.approx(116.40))
+    assert report["voided"] == []
+    assert report["refunds"] == []
+    # And the plan the whole fixture produces is still clean.
+    assert _plan_is_clean(accounts, transactions)

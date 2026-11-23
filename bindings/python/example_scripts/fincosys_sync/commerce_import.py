@@ -127,6 +127,52 @@
 #
 # QuickBooks Online's RegimA @ Dr H Ltd ledger is the case in point: 257 GBP
 # invoices and 10 EUR ones in the same export.
+#
+# A record states more than the amount charged, and all of it is read
+# ---------------------------------------------------------------------
+# Until 2026-11-23 this script read `amounts` and nothing else: every record
+# booked `total` to receivables and credited revenue, shipping and tax. The
+# schema states three more things about the same record -- `financial_status`,
+# `refunded` and `net_payment` (plus `cancelled_at`) -- and each of them
+# changes what is actually owed. Measured on entity-rzl's own 9,449-order
+# Shopify history:
+#
+#   25 orders read VOIDED, GBP 4,710.89, every one with net_payment 0.00 and
+#      refunded 0.00. The authorization was voided and nothing was ever
+#      captured, so booking them credits revenue and raises a receivable for
+#      sales that were never charged.
+#    5 read REFUNDED (GBP 257.34, all of it refunded) and 12
+#      PARTIALLY_REFUNDED (GBP 1,073.29 of GBP 3,722.05 refunded). The
+#      refund was stated; nothing reversed it.
+#
+# So:
+#
+#   * a record whose status says the sale was voided before any money moved
+#     is not booked, and is counted and named rather than dropped quietly;
+#   * a stated `refunded` books a second, separate transaction that reverses
+#     it -- never a quiet netting of the sale, so the sale as issued and the
+#     reversal are both in the ledger and either can be traced to the record;
+#   * a settled record whose stated settlement falls short of the amount
+#     charged is reported. On Shopify that is a *return credited against the
+#     order with no money returned*, which `refunded` does not show at all:
+#     order #10675 of 2026-11-16 states total 139.50, refunded 0.00 and
+#     net_payment 63.90, and its one return document refunds GBP 0.00 against
+#     a 63.00 line. Only net_payment sees it.
+#
+# The refund reverses to one contra account, COMM-<entity>-REFUNDS, and is
+# not decomposed across revenue, shipping and tax: the record does not say
+# how the refund split between them, and splitting it pro rata would invent
+# a figure. The reversal is a transaction of its own
+# (COMMERCE:<record_id>:REFUND), so it supersedes and re-imports by the same
+# machinery as the sale.
+#
+# One limit, stated rather than discovered: supersession works on the
+# transactions a document produces, so a later capture that declines to book
+# a record can only retract an earlier capture's booking *within one run*
+# (`convert_paths` drops a booked transaction that a higher-ranked capture
+# voids, and reports it). A transaction already applied to a book stays
+# until someone deletes it -- idempotency protects a re-import, it cannot
+# retract a booking already made.
 
 import argparse
 import json
@@ -179,6 +225,17 @@ TAX_BASES = ("exclusive", "inclusive")
 #: Documents written before tax_basis existed omit it and were exclusive.
 DEFAULT_TAX_BASIS = "exclusive"
 
+#: A financial_status whose own words say the sale was reversed before any
+#: money moved. Shopify writes VOIDED when the payment authorization was
+#: voided, so nothing was ever captured. Matched case-insensitively because
+#: the field is the provider's own text.
+VOIDED_STATUSES = ("VOIDED", "VOID", "CANCELLED", "CANCELED")
+
+#: A financial_status that says the document was settled in full. Only then
+#: is a stated settlement short of the amount charged a question -- before
+#: that, short simply means not yet paid.
+SETTLED_STATUSES = ("PAID", "CLOSED")
+
 # Per-entity account codes. Suffixes are stable; the entity code makes them
 # unique across a multi-entity book, matching sync_fincosys.py's convention
 # for Imbalance-<entity>-<category>.
@@ -191,6 +248,16 @@ ACCOUNT_SPECS = (
      "Shipping and delivery charged to commerce customers"),
     ("TAX", "Tax Payable", "LIABILITY",
      "Sales tax / VAT charged on commerce documents"),
+)
+
+#: The contra account a stated refund reverses into. Kept out of
+#: ACCOUNT_SPECS and built only for a currency that actually booked one, so
+#: a document with no refund in it does not leave an empty account behind in
+#: every plan. EXPENSE because the feed schema's six-way account_type enum
+#: has no contra-income type; its natural balance is a debit either way.
+REFUND_ACCOUNT_SPEC = (
+    "REFUNDS", "Sales Refunds", "EXPENSE",
+    "Amounts refunded on commerce documents, against the sale they reverse",
 )
 
 
@@ -508,6 +575,71 @@ def build_accounts(entity_code, currency, scoped=False):
     ]
 
 
+def build_refund_account(entity_code, currency, scoped=False):
+    """The contra account a stated refund reverses into, in one currency."""
+    suffix, name, account_type, description = REFUND_ACCOUNT_SPEC
+    return {
+        "code": account_code(entity_code, suffix, currency if scoped else None),
+        "name": "{} ({})".format(name, currency) if scoped else name,
+        "parent_code": None,
+        "account_type": account_type,
+        "entity_code": entity_code,
+        "currency": currency,
+        "description": description,
+    }
+
+
+def is_voided(record):
+    """Does the record's own status say the sale was reversed, unpaid?
+
+    The status alone is not taken as sufficient. A voided authorization means
+    nothing was captured, so the figures must agree: nothing received and
+    nothing refunded. A record calling itself voided while stating money
+    received or refunded is a contradiction, and is booked and reported
+    rather than silently dropped -- dropping a sale that was charged is the
+    worse of the two errors.
+
+    ``net_payment`` is absent from QuickBooks records (they state ``balance``
+    instead), so an absent field corroborates nothing either way and only
+    ``refunded`` is tested.
+    """
+    status = (record.get("financial_status") or "").strip().upper()
+    if status not in VOIDED_STATUSES:
+        return False
+    amounts = record.get("amounts") or {}
+    if _amount(amounts, "refunded"):
+        return False
+    if "net_payment" in amounts and _amount(amounts, "net_payment"):
+        return False
+    return True
+
+
+def settlement_shortfall(record, total):
+    """How far a *settled* record's stated settlement falls short, or None.
+
+    ``net_payment + refunded`` is what the provider says happened to the
+    money. On a record that says it is settled in full, anything less than
+    the amount charged is unexplained by the record's own figures -- which is
+    what a Shopify return credited against the order with no money refunded
+    looks like, since ``refunded`` stays 0.00 for it.
+
+    Returns None where the question does not arise: no ``net_payment``
+    stated (every QuickBooks record), or a status that does not claim to be
+    settled, where short means merely unpaid.
+    """
+    amounts = record.get("amounts") or {}
+    if "net_payment" not in amounts or amounts.get("net_payment") is None:
+        return None
+    status = (record.get("financial_status") or "").strip().upper()
+    if status not in SETTLED_STATUSES:
+        return None
+    stated = _amount(amounts, "net_payment") + _amount(amounts, "refunded")
+    shortfall = total - stated
+    if abs(shortfall) <= RECONCILE_TOLERANCE:
+        return None
+    return shortfall
+
+
 def _splits_for(entity_code, amounts, tax_basis=DEFAULT_TAX_BASIS,
                 currency_scope=None):
     """Return (splits, total, components, revenue) for one bookable record.
@@ -596,11 +728,25 @@ def convert(document, source_path="", per_currency_accounts=False,
     rejected = []
     skipped_aggregates = 0
     skipped_not_bookable = 0
+    #: Records whose own status says the sale was voided before any money
+    #: moved. Named, not counted, because each one is a sale that an earlier
+    #: capture of the same record may already have booked.
+    voided = []
+    #: Reversals booked for a stated `refunded`, and reversals refused
+    #: because the stated refund exceeds the sale it claims to reverse.
+    refunds = []
+    refund_refusals = []
+    #: Settled records whose stated settlement falls short of the amount
+    #: charged. Booked -- the sale happened -- and reported.
+    shortfalls = []
     currencies = OrderedDict()
     #: Only the currencies of records that were actually booked. Accounts
     #: are built from these, so a rejected foreign-currency record does not
     #: leave an empty account behind in the plan.
     booked_currencies = OrderedDict()
+    #: Currencies that booked a reversal. The refund contra account is built
+    #: only for these, so a document with no refund leaves no empty account.
+    refund_currencies = OrderedDict()
     tax_bases = OrderedDict((basis, 0) for basis in TAX_BASES)
 
     for record in document.get("records", []):
@@ -625,6 +771,22 @@ def convert(document, source_path="", per_currency_accounts=False,
                 "record_id": None,
                 "reason": "record has no record_id, so it cannot be made "
                           "idempotent on re-import",
+            })
+            continue
+
+        if is_voided(record):
+            # Nothing was captured, so there is no sale to book. Booking it
+            # would credit revenue and raise a receivable for a charge that
+            # never happened -- 25 of entity-rzl's orders, GBP 4,710.89.
+            voided.append({
+                "record_id": record_id,
+                "txid": "COMMERCE:{}".format(
+                    canonical_record_id(record_id, declared_code, entity_code)
+                ),
+                "document_number": record.get("document_number"),
+                "financial_status": record.get("financial_status"),
+                "total": _amount(record.get("amounts"), "total"),
+                "currency": record.get("currency"),
             })
             continue
 
@@ -694,6 +856,21 @@ def convert(document, source_path="", per_currency_accounts=False,
         tax_bases[tax_basis] += 1
         booked_currencies[currency] = True
 
+        amounts = record.get("amounts") or {}
+        refunded = _amount(amounts, "refunded")
+        shortfall = settlement_shortfall(record, total)
+        if shortfall is not None:
+            shortfalls.append({
+                "record_id": record_id,
+                "document_number": record.get("document_number"),
+                "financial_status": record.get("financial_status"),
+                "total": total,
+                "net_payment": _amount(amounts, "net_payment"),
+                "refunded": refunded,
+                "shortfall": shortfall,
+                "currency": currency,
+            })
+
         counterparty = record.get("counterparty") or {}
         transactions.append({
             # Namespaced so a commerce document and a bank-statement feed
@@ -732,6 +909,86 @@ def convert(document, source_path="", per_currency_accounts=False,
                 # complete capture from a partial one without going back to
                 # the source document.
                 "capture_status": "complete" if complete else "partial",
+                # The settlement the record states about its own sale. Kept
+                # on the transaction so a book can tell an unpaid receivable
+                # from one that was collected without going back to the file.
+                "refunded": amounts.get("refunded"),
+                "net_payment": amounts.get("net_payment"),
+                "balance": amounts.get("balance"),
+                "cancelled_at": record.get("cancelled_at"),
+                "settlement_shortfall": (
+                    None if shortfall is None else round(shortfall, 2)
+                ),
+                "source_document": os.path.basename(source_path) if source_path else "",
+            },
+        })
+
+        if not refunded:
+            continue
+        if refunded > total + RECONCILE_TOLERANCE:
+            # A refund larger than the sale it reverses is a mis-stated
+            # record, not a sale with negative receivables. The sale stays
+            # booked -- it happened -- and the reversal is refused.
+            refund_refusals.append({
+                "record_id": record_id,
+                "reason": "stated refund exceeds the amount charged, so the "
+                          "reversal would credit receivables below zero",
+                "total": total,
+                "refunded": refunded,
+            })
+            continue
+
+        refund_currencies[currency] = True
+        refunds.append({
+            "record_id": record_id,
+            "document_number": record.get("document_number"),
+            "refunded": refunded,
+            "total": total,
+            "currency": currency,
+        })
+        transactions.append({
+            # A transaction of its own, so the sale as issued and its
+            # reversal are both in the ledger and either can be traced to
+            # the record. Suffixed so it supersedes and re-imports by the
+            # same txid machinery as the sale.
+            "txid": "COMMERCE:{}:REFUND".format(
+                canonical_record_id(record_id, declared_code, entity_code)
+            ),
+            "date": (record.get("issued_at") or "")[:10],
+            "description": "{} {} refund".format(
+                source, record.get("document_number") or record_id
+            ).strip(),
+            "currency": currency,
+            "entity_code": entity_code,
+            "splits": [
+                {
+                    "account_code": account_code(
+                        entity_code, "REFUNDS", currency_scope),
+                    "amount": refunded,
+                    "memo": "",
+                },
+                {
+                    "account_code": account_code(
+                        entity_code, "AR", currency_scope),
+                    "amount": -refunded,
+                    "memo": "",
+                },
+            ],
+            "metadata": {
+                "commerce_source": source,
+                "record_type": record_type,
+                "reverses_record": record_id,
+                "record_id": record_id,
+                "declared_entity_code": declared_code,
+                "document_number": record.get("document_number"),
+                "financial_status": record.get("financial_status"),
+                "refunded": amounts.get("refunded"),
+                "net_payment": amounts.get("net_payment"),
+                # The record states one refund figure and no split of it
+                # across revenue, shipping and tax, so the reversal is not
+                # decomposed. Splitting it pro rata would invent a figure.
+                "decomposition": "not stated by the record",
+                "capture_status": "complete" if complete else "partial",
                 "source_document": os.path.basename(source_path) if source_path else "",
             },
         })
@@ -739,6 +996,9 @@ def convert(document, source_path="", per_currency_accounts=False,
     accounts = []
     for index, booked in enumerate(booked_currencies):
         accounts.extend(build_accounts(entity_code, booked, scoped=index > 0))
+        if booked in refund_currencies:
+            accounts.append(
+                build_refund_account(entity_code, booked, scoped=index > 0))
 
     report = {
         "entity_code": entity_code,
@@ -746,9 +1006,16 @@ def convert(document, source_path="", per_currency_accounts=False,
         "source": source,
         "capture_status": "complete" if complete else "partial",
         "records_total": len(document.get("records", [])),
-        "booked": len(transactions),
+        # Records booked, not transactions emitted: a reversal is a second
+        # transaction for a record already counted here, and folding it in
+        # would read as more sales than the document holds.
+        "booked": len(transactions) - len(refunds),
         "skipped_aggregates": skipped_aggregates,
         "skipped_not_bookable": skipped_not_bookable,
+        "voided": voided,
+        "refunds": refunds,
+        "refund_refusals": refund_refusals,
+        "settlement_shortfalls": shortfalls,
         "rejected": rejected,
         "currencies": sorted(currencies),
         "booked_currencies": sorted(booked_currencies),
@@ -830,6 +1097,39 @@ def _detail_rank(transaction):
     return len(transaction.get("splits", []))
 
 
+def apply_voids(entries, voids):
+    """Drop a booked transaction that a *better* capture says was voided.
+
+    A voided record produces no transaction, so there is nothing for
+    ``resolve_duplicates`` to compare it against: without this, a corpus
+    holding both the capture that booked a sale and the later one that says
+    the authorization was voided keeps the booking. entity-rzl holds exactly
+    that -- three orders its 2026-11-16 capture states PENDING read VOIDED on
+    2026-11-23, GBP 2,231.88 between them.
+
+    ``voids`` maps a txid to the highest supersession rank of a document
+    voiding it. A booking is dropped only when that rank beats the booking
+    document's own, so a stale capture cannot void a record a better one
+    books. Returns ``(entries, dropped)``.
+    """
+    kept = []
+    dropped = []
+    for transaction, rank, label in entries:
+        txid = transaction.get("txid") or ""
+        base = txid[:-len(":REFUND")] if txid.endswith(":REFUND") else txid
+        void = voids.get(base)
+        if void is not None and void[0] > rank:
+            dropped.append({
+                "txid": txid,
+                "booked_by": label,
+                "voided_by": void[1],
+                "total": void[2],
+            })
+            continue
+        kept.append((transaction, rank, label))
+    return kept, dropped
+
+
 def resolve_duplicates(entries):
     """Collapse records captured more than once, and flag those that disagree.
 
@@ -898,6 +1198,8 @@ def convert_paths(paths, keep_going=False, per_currency_accounts=False,
     entries = []
     reports = []
     failures = []
+    #: txid -> (rank, label, total) of the best capture that voids it.
+    voids = {}
 
     for path in paths:
         try:
@@ -919,8 +1221,13 @@ def convert_paths(paths, keep_going=False, per_currency_accounts=False,
                 accounts_by_code.setdefault(account["code"], account)
             rank = _supersession_rank(document, label)
             entries.extend((txn, rank, label) for txn in txns)
+            for void in report["voided"]:
+                existing = voids.get(void["txid"])
+                if existing is None or rank > existing[0]:
+                    voids[void["txid"]] = (rank, label, void["total"])
             reports.append(report)
 
+    entries, voided_bookings = apply_voids(entries, voids)
     transactions, superseded, conflicts = resolve_duplicates(entries)
 
     return (
@@ -928,7 +1235,11 @@ def convert_paths(paths, keep_going=False, per_currency_accounts=False,
         transactions,
         reports,
         failures,
-        {"superseded": superseded, "conflicts": conflicts},
+        {
+            "superseded": superseded,
+            "conflicts": conflicts,
+            "voided_bookings": voided_bookings,
+        },
     )
 
 
@@ -986,6 +1297,48 @@ def print_report(reports):
             print("  skipped quotes   : {}  (an estimate is not a sale; "
                   "booking it credits revenue for a transaction that may "
                   "never happen)".format(report["skipped_not_bookable"]))
+        if report.get("voided"):
+            total = sum(v["total"] for v in report["voided"])
+            print("  not booked, voided: {}  ({:,.2f}, the status says the "
+                  "authorization was voided and the figures agree nothing "
+                  "was received or refunded)".format(
+                      len(report["voided"]), total))
+            for void in report["voided"][:5]:
+                print("      {} {} {:,.2f}".format(
+                    void.get("document_number") or void["record_id"],
+                    void.get("financial_status"), void["total"]))
+            if len(report["voided"]) > 5:
+                print("      ... and {} more".format(
+                    len(report["voided"]) - 5))
+        if report.get("refunds"):
+            total = sum(r["refunded"] for r in report["refunds"])
+            print("  refunds reversed : {}  ({:,.2f} credited back to "
+                  "receivables against COMM-{}-REFUNDS)".format(
+                      len(report["refunds"]), total, report["entity_code"]))
+        for refusal in report.get("refund_refusals", []):
+            print("  REFUND REFUSED   : {}: {} (charged {:,.2f}, refund "
+                  "stated {:,.2f})".format(
+                      refusal["record_id"], refusal["reason"],
+                      refusal["total"], refusal["refunded"]))
+        if report.get("settlement_shortfalls"):
+            total = sum(s["shortfall"]
+                        for s in report["settlement_shortfalls"])
+            print("  settled short    : {}  ({:,.2f} of the amount charged "
+                  "is neither received nor refunded by the record's own "
+                  "figures. A Shopify return credited to the order with no "
+                  "money returned reads this way, and so does a document "
+                  "settled outside the provider -- these are named, not "
+                  "adjudicated)".format(
+                      len(report["settlement_shortfalls"]), total))
+            for gap in report["settlement_shortfalls"][:5]:
+                print("      {} {} charged {:,.2f}, received {:,.2f}, "
+                      "refunded {:,.2f}".format(
+                          gap.get("document_number") or gap["record_id"],
+                          gap.get("financial_status"), gap["total"],
+                          gap["net_payment"], gap["refunded"]))
+            if len(report["settlement_shortfalls"]) > 5:
+                print("      ... and {} more".format(
+                    len(report["settlement_shortfalls"]) - 5))
         print("  rejected         : {}".format(len(report["rejected"])))
         for rejection in report["rejected"][:10]:
             print("      {}: {}".format(
@@ -1115,6 +1468,19 @@ def main(argv=None):
 
     superseded = duplicates["superseded"]
     conflicts = duplicates["conflicts"]
+    voided_bookings = duplicates.get("voided_bookings") or []
+    if voided_bookings:
+        # A sale one capture booked and a better capture says was never
+        # charged. Dropped here, and named: a transaction already applied to
+        # a book stays until someone deletes it.
+        print("\n{} booked sale(s) dropped because a better capture states "
+              "the authorization was voided".format(len(voided_bookings)))
+        for entry in voided_bookings[:10]:
+            print("    {}: booked by {}, voided by {} ({:,.2f})".format(
+                entry["txid"], entry["booked_by"], entry["voided_by"],
+                entry["total"]))
+        if len(voided_bookings) > 10:
+            print("    ... and {} more".format(len(voided_bookings) - 10))
     if superseded:
         print("\n{} record(s) captured more than once; the better capture "
               "was kept".format(len(superseded)))
